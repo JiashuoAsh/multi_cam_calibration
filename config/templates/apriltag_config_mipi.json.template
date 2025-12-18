@@ -1,0 +1,135 @@
+{
+  "_comment": "=== MIPI独立双目相机配置模板 ===",
+  "_comment_usage": "使用方法: cp apriltag_config_mipi.json.template apriltag_config.json 然后修改参数",
+
+  "camera_settings": {
+    "_comment": "相机类型和参数配置",
+
+    "camera_type": "mipi",
+    "_comment_camera_type": "固定为 mipi，表示MIPI独立双目相机",
+
+    "left_camera_id": 22,
+    "_comment_left_camera_id": "左相机设备ID，根据实际系统配置填写",
+
+    "right_camera_id": 31,
+    "_comment_right_camera_id": "右相机设备ID，根据实际系统配置填写",
+
+    "image_width": 3840,
+    "_comment_image_width": "单个相机的图像宽度，常见值: 1920, 3840",
+
+    "image_height": 2160,
+    "_comment_image_height": "单个相机的图像高度，常见值: 1080, 2160"
+  },
+
+  "apriltag_board": {
+    "_comment": "AprilTag标定板配置 - 必须精确测量！",
+
+    "family": "tag36h11",
+    "_comment_family": "AprilTag类型，可选: tag16h5, tag25h9, tag36h10, tag36h11(推荐)",
+
+    "tags_x": 6,
+    "_comment_tags_x": "横向标签数量（列数），如: 4, 5, 6",
+
+    "tags_y": 6,
+    "_comment_tags_y": "纵向标签数量（行数），如: 4, 5, 6",
+
+    "tag_size": 55.0,
+    "_comment_tag_size": "单个标签的边长（毫米），必须用卡尺精确测量黑色边框",
+
+    "tag_spacing": 16.5,
+    "_comment_tag_spacing": "标签之间的间距（毫米），边到边的距离，必须精确测量",
+
+    "unit": "mm",
+    "_comment_unit": "长度单位，固定为 mm",
+
+    "description": "AprilTag 标定板配置",
+    "note": "tag_size是单个标签的边长，tag_spacing是标签之间的间距（边到边）"
+  },
+
+  "calibration_settings": {
+    "_comment": "标定参数设置",
+
+    "min_tags_for_pose": 4,
+    "_comment_min_tags_for_pose": "位姿估计最少需要的标签数，建议: 4-10，值越大要求越严格",
+
+    "max_images": 50,
+    "_comment_max_images": "目标采集的图像组数，建议: 20-50",
+
+    "corner_refinement": "CORNER_REFINE_APRILTAG",
+    "_comment_corner_refinement": "角点优化方法，固定为 CORNER_REFINE_APRILTAG"
+  },
+
+  "board_to_base_transform": {
+    "_comment": "标定板到底盘坐标系的变换（仅step5需要）",
+
+    "description": "标定板相对机器人底盘的固定位置 (B_T_T)",
+
+    "translation": [1.5, 0.0, 1.2],
+    "_comment_translation": "平移向量 [X, Y, Z] 单位:米（底盘B系：X右, Y上, Z前）。注意：默认表示 Tag0中心(T原点) 在B中的坐标",
+
+    "translation_reference": "tag0_center",
+    "_comment_translation_reference": "translation 使用的参考点：tag0_center(默认)/board_center/grid_center。若你量的是板中心，改为 board_center",
+
+    "translation_reference_point_in_T_m": [0.0, 0.0, 0.0],
+    "_comment_translation_reference_point_in_T_m": "参考点在T坐标系中的位置(米)。仅当 translation_reference 不是 tag0_center 时有意义；也可显式覆盖默认网格中心",
+
+    "rotation_euler_deg": [0.0, 0.0, 90.0],
+    "_comment_rotation_euler_deg": "旋转角度 [Roll, Pitch, Yaw] 单位:度。严格定义见 step5b_camera_to_base.py：SciPy Rotation.from_euler('XYZ', [roll,pitch,yaw])（内旋/右手定则）",
+
+    "note": "Step5 使用 step5a_capture_for_base.py + step5b_camera_to_base.py；请测量并更新这些值"
+  },
+
+  "_example_configurations": {
+    "_comment": "常见配置示例",
+
+    "example_1": {
+      "description": "4K MIPI双目相机 + 6x6标定板",
+      "camera": {
+        "left_camera_id": 22,
+        "right_camera_id": 31,
+        "image_width": 3840,
+        "image_height": 2160
+      },
+      "board": {
+        "tags_x": 6,
+        "tags_y": 6,
+        "tag_size": 55.0,
+        "tag_spacing": 16.5
+      }
+    },
+
+    "example_2": {
+      "description": "1080P MIPI双目相机 + 5x5标定板",
+      "camera": {
+        "left_camera_id": 0,
+        "right_camera_id": 1,
+        "image_width": 1920,
+        "image_height": 1080
+      },
+      "board": {
+        "tags_x": 5,
+        "tags_y": 5,
+        "tag_size": 60.0,
+        "tag_spacing": 15.0
+      }
+    }
+  },
+
+  "_camera_id_detection": {
+    "_comment": "如何查找MIPI相机ID",
+    "method_1": "查看系统日志，搜索相机初始化信息",
+    "method_2": "使用 VideoCaptureV4L2c 测试不同ID，观察是否能成功打开",
+    "method_3": "查阅硬件文档或询问系统集成商",
+    "note": "left_camera_id 和 right_camera_id 是系统分配的设备ID，不是/dev/videoX中的X"
+  },
+
+  "_quick_start": {
+    "_comment": "快速开始步骤",
+    "step_1": "复制此模板: cp apriltag_config_mipi.json.template apriltag_config.json",
+    "step_2": "确认并填写 camera_settings 中的相机ID和分辨率",
+    "step_3": "精确测量并填写 apriltag_board 中的尺寸参数",
+    "step_4": "删除所有以 _ 开头的注释字段（或保留，程序会忽略）",
+    "step_5": "运行: python step1_capture_imgs.py 开始标定",
+    "troubleshooting": "如果相机无法打开，检查camera_id是否正确，尝试不同的ID值"
+  }
+}

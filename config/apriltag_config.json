@@ -1,0 +1,103 @@
+{
+  "_comment": "=== USB 独立双目相机配置模板 ===",
+  "camera_settings": {
+    "camera_type": "custom_usb_stereo",
+    "device_path": "/dev/video40",
+    "raw_width": 2560,
+    "raw_height": 720,
+    "image_width": 720,
+    "image_height": 1280,
+    "note": "图像是竖向的: 720(宽) x 1280(高)"
+  },
+  "apriltag_board": {
+    "_comment": "AprilTag标定板配置 - 必须精确测量！",
+
+    "family": "tag36h11",
+    "_comment_family": "AprilTag类型，可选: tag16h5, tag25h9, tag36h10, tag36h11(推荐)",
+
+    "tags_x": 6,
+    "_comment_tags_x": "横向标签数量（列数），如: 4, 5, 6",
+
+    "tags_y": 6,
+    "_comment_tags_y": "纵向标签数量（行数），如: 4, 5, 6",
+
+    "tag_size": 55.0,
+    "_comment_tag_size": "单个标签的边长（毫米），必须用卡尺精确测量黑色边框",
+
+    "tag_spacing": 16.5,
+    "_comment_tag_spacing": "标签之间的间距（毫米），边到边的距离，必须精确测量",
+
+    "unit": "mm",
+    "_comment_unit": "长度单位，固定为 mm",
+
+    "description": "AprilTag 标定板配置",
+    "note": "tag_size是单个标签的边长，tag_spacing是标签之间的间距（边到边）"
+  },
+
+  "calibration_settings": {
+    "_comment": "标定参数设置",
+
+    "min_tags_for_pose": 4,
+    "_comment_min_tags_for_pose": "位姿估计最少需要的标签数，建议: 4-10，值越大要求越严格",
+
+    "max_images": 500,
+    "_comment_max_images": "目标采集的图像组数，建议: 20-50",
+
+    "corner_refinement": "CORNER_REFINE_SUBPIX",
+    "_comment_corner_refinement": "角点优化方法：推荐 CORNER_REFINE_SUBPIX（更稳）；CORNER_REFINE_APRILTAG 会切换到 AprilTag2 检测策略，可能在部分图像上导致 0 检测",
+
+    "detection": {
+      "use_multiscale": true,
+      "_comment_use_multiscale": "是否启用多尺度/多预处理检测以提升召回率（更慢但更稳）",
+
+      "opencv_refine": true,
+      "_comment_opencv_refine": "是否启用 OpenCV 官方 refineDetectedMarkers（需提供 board；提供K/dist更可靠）"
+    }
+  },
+
+  "board_to_base_transform": {
+    "_comment_overview": "===== 标定板到底盘坐标系变换配置 =====",
+
+    "coordinate_system": "底盘坐标系：X右 Y上 Z前",
+    "_comment_coordinate": "底盘坐标系定义: X轴向右, Y轴向上, Z轴向前 (符合机器人学标准)",
+
+    "description": "标定板相对机器人底盘的固定安装位置和姿态",
+    "_comment_transform_type": "变换矩阵 B_T_T: 将标定板坐标系(T)的点转换到底盘坐标系(B)",
+
+    "_comment_setup": "===== 物理安装情况 =====",
+    "_comment_setup_details": [
+      "标定板垂直靠墙固定安装",
+      "标定板底座高度: 31.6cm (离地面)",
+      "标定板最下方离墙距离: 15.0cm",
+      "标定板长度: 60.0cm",
+      "标定板倾斜角度: 向前倾斜 14.48°",
+      "机器人底盘中心到墙面距离: 2.162m (1.862m + 0.3m)",
+      "标定板中心相对底盘中心左右偏移: -8.2cm"
+    ],
+
+    "translation": [-0.082, -0.6065, 2.087],
+    "_comment_translation": "标定板中心在底盘坐标系中的位置 [X, Y, Z] (单位:米)",
+    "_comment_translation_calc": [
+      "X = -0.082 (标定板中心相对底盘中心偏左8.2cm, X轴向右为正)",
+      "Y = -(0.316 + 0.2905) = -0.6065 (底座高31.6cm + 底座到板中心高29.05cm(实测), Y轴向上为正)",
+      "Z = 2.162 - 0.075 = 2.087 (墙面距离减去前倾造成的中心前移7.5cm, Z轴向前为正)"
+    ],
+
+    "translation_reference": "board_center",
+    "_comment_translation_ref": "translation坐标对应标定板的几何中心点",
+
+    "translation_reference_point_in_T_m": [0.22275, 0.22275, 0.0],
+    "_comment_ref_point": "标定板中心点在标定板坐标系T中的位置(米): [(6-1)*71.5/2/1000, (6-1)*71.5/2/1000, 0]",
+
+    "rotation_euler_deg": [165.52, 0.0, 0.0],
+    "_comment_rotation": "标定板相对底盘的姿态 [Roll, Pitch, Yaw] (单位:度)",
+    "_comment_rotation_explanation": [
+      "Roll = 165.52° (绕X轴旋转, 因为opencv坐标系y轴正方向向下，z轴正方向指向板后，所以标定板是向后倾斜)",
+      "Pitch = 0.0° (绕Y轴旋转, 无左右倾斜)",
+      "Yaw = 0.0° (绕Z轴旋转, 无水平转动)",
+      "倾斜角计算: 180° - arcsin(15.0/60.0) ≈ 180° - 14.48° = 165.52°"
+    ],
+
+    "_comment_euler_convention": "使用XYZ内旋欧拉角 (scipy标准): 先绕X轴, 再绕旋转后的Y轴, 最后绕最终Z轴"
+  }
+}
