@@ -69,33 +69,33 @@
       "标定板垂直靠墙固定安装",
       "标定板底座高度: 31.6cm (离地面)",
       "标定板最下方离墙距离: 15.0cm",
-      "标定板长度: 60.0cm",
-      "标定板倾斜角度: 向前倾斜 14.48°",
+      "标定板长度: 50.0cm",
+      "标定板倾斜角度: 向前倾斜 17.46°",
       "机器人底盘中心到墙面距离: 2.162m (1.862m + 0.3m)",
       "标定板中心相对底盘中心左右偏移: -8.2cm"
     ],
 
-    "translation": [-0.082, -0.6065, 2.087],
+    "translation": [-0.082, -0.5545, 2.087],
     "_comment_translation": "标定板中心在底盘坐标系中的位置 [X, Y, Z] (单位:米)",
     "_comment_translation_calc": [
       "X = -0.082 (标定板中心相对底盘中心偏左8.2cm, X轴向右为正)",
-      "Y = -(0.316 + 0.2905) = -0.6065 (底座高31.6cm + 底座到板中心高29.05cm(实测), Y轴向上为正)",
-      "Z = 2.162 - 0.075 = 2.087 (墙面距离减去前倾造成的中心前移7.5cm, Z轴向前为正)"
+      "Y = -(0.316 + 0.2385) = -0.5545 (底座高31.6cm + 底座到板中心高23.85cm(50cm / 2 * cos(17.46°)), Y轴向上为正)",
+      "Z = 2.162 - 0.075 = 2.087 (墙面距离减去前倾造成的中心前移7.5cm(50cm / 2 * sin(17.46°)), Z轴向前为正)"
     ],
 
     "translation_reference": "board_center",
-    "_comment_translation_ref": "translation坐标对应标定板的几何中心点",
+    "_comment_translation_ref": "translation 对应的参考点：tag0_center(默认)/board_center/grid_center 等。若不是 tag0_center，则程序会用 translation_reference_point_in_T_m 把该参考点换算成 Tag0(=T原点) 在B中的位置",
 
-    "translation_reference_point_in_T_m": [0.22275, 0.22275, 0.0],
-    "_comment_ref_point": "标定板中心点在标定板坐标系T中的位置(米): [(6-1)*71.5/2/1000, (6-1)*71.5/2/1000, 0]",
+    "translation_reference_point_in_T_m": [0.17875, 0.17875, 0.0],
+    "_comment_ref_point": "参考点在标定板坐标系T中的位置(米)。本工程T系原点=Tag0中心，+X向右(列增大)，+Y向上(行增大)。若参考点取 tag网格中心/板中心(白边对称、且外圈边距等于tag_spacing时中心不变)，则: x=(tags_x-1)*(tag_size+tag_spacing)/2/1000, y=(tags_y-1)*(tag_size+tag_spacing)/2/1000, z=0。若白边不对称，还需加偏置: x+= (mR-mL)/2/1000, y+= (mT-mB)/2/1000",
 
-    "rotation_euler_deg": [165.52, 0.0, 0.0],
+    "rotation_euler_deg": [162.54, 0.0, 0.0],
     "_comment_rotation": "标定板相对底盘的姿态 [Roll, Pitch, Yaw] (单位:度)",
     "_comment_rotation_explanation": [
-      "Roll = 165.52° (绕X轴旋转, 因为opencv坐标系y轴正方向向下，z轴正方向指向板后，所以标定板是向后倾斜)",
+      "Roll = 162.54° (绕X轴旋转, 因为opencv坐标系y轴正方向向下，z轴正方向指向板后，所以标定板是向后倾斜)",
       "Pitch = 0.0° (绕Y轴旋转, 无左右倾斜)",
       "Yaw = 0.0° (绕Z轴旋转, 无水平转动)",
-      "倾斜角计算: 180° - arcsin(15.0/60.0) ≈ 180° - 14.48° = 165.52°"
+      "倾斜角计算: 180° - arcsin(15.0/50.0) ≈ 180° - 17.46° = 162.54°"
     ],
 
     "_comment_euler_convention": "使用XYZ内旋欧拉角 (scipy标准): 先绕X轴, 再绕旋转后的Y轴, 最后绕最终Z轴"

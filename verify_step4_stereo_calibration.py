@@ -229,9 +229,9 @@ def verify_reprojection_error(
         reported_mean_error: Step4 保存到 stereo_extrinsics.json 的 mean reprojection error
         aruco_dict: AprilTag字典
     """
+
     print("\n重投影误差手动验证（考虑双目外参约束）:")
     print("=" * 60)
-    print("目的: 理解 cv2.stereoCalibrate 如何在双目约束下计算重投影误差")
     print()
 
     # 加载标定板配置
@@ -271,7 +271,7 @@ def verify_reprojection_error(
             right_dist_coeffs=dist_r,
         )
 
-        MIN_COMMON_TAGS = 7
+        MIN_COMMON_TAGS = 15
         keep_pairs, _remove_pairs = filter_low_quality_pairs(
             image_quality, min_common_tags=MIN_COMMON_TAGS
         )

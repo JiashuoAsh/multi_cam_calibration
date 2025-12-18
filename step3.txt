@@ -12,7 +12,7 @@ Step 3: AprilTag 内参标定
 
 左相机标定:
   - 图像数量: 447
-  - 最大有效图像: 150
+  - 最大有效图像: 1500
   - 可视化目录: results/visualization/step3_intrinsic_左
   跳过 20251217_035718_352.png: 检测到的标签不足 (4)
   跳过 20251217_035718_575.png: 检测到的标签不足 (4)
@@ -25,35 +25,40 @@ Step 3: AprilTag 内参标定
   跳过 20251217_035721_008.png: 检测到的标签不足 (4)
   跳过 20251217_035721_228.png: 检测到的标签不足 (4)
   跳过 20251217_035721_670.png: 检测到的标签不足 (4)
-  已达到最大有效图像数量 (150)，停止处理
-  - 有效图像: 150/447
+  跳过 20251217_035732_337.png: 检测到的标签不足 (4)
+  跳过 20251217_035732_819.png: 检测到的标签不足 (4)
+  跳过 20251217_035733_043.png: 检测到的标签不足 (4)
+  跳过 20251217_035733_487.png: 检测到的标签不足 (4)
+  跳过 20251217_035733_709.png: 检测到的标签不足 (4)
+  跳过 20251217_035734_380.png: 检测到的标签不足 (4)
+  - 有效图像: 430/447
   - 正在标定...
-  - RMS(ret, OpenCV): 0.4407 像素
-  - 平均误差(mean_error, per-image mean): 0.1165 像素
+  - RMS(ret, OpenCV): 0.3557 像素
+  - 平均误差(mean_error, per-image mean): 0.1178 像素
   - 标定质量: 优秀
-  - 已保存 150 张检测图像到 results/visualization/step3_intrinsic_左/detection
-  - 已保存 150 张重投影图像到 results/visualization/step3_intrinsic_左/reprojection
+  - 已保存 430 张检测图像到 results/visualization/step3_intrinsic_左/detection
+  - 已保存 430 张重投影图像到 results/visualization/step3_intrinsic_左/reprojection
   - 正在生成去畸变图像...
-  - 已保存 150 张去畸变图像到 results/visualization/step3_intrinsic_左/undistorted
+  - 已保存 430 张去畸变图像到 results/visualization/step3_intrinsic_左/undistorted
   - 已保存: results/left_intrinsics.json
 
 右相机标定:
   - 图像数量: 447
-  - 最大有效图像: 150
+  - 最大有效图像: 1500
   - 可视化目录: results/visualization/step3_intrinsic_右
   跳过 20251217_035700_246.png: 检测到的标签不足 (4)
   跳过 20251217_035700_468.png: 检测到的标签不足 (4)
   跳过 20251217_035702_015.png: 检测到的标签不足 (4)
-  已达到最大有效图像数量 (150)，停止处理
-  - 有效图像: 150/447
+  跳过 20251217_035745_390.png: 检测到的标签不足 (4)
+  - 有效图像: 443/447
   - 正在标定...
-  - RMS(ret, OpenCV): 0.3528 像素
-  - 平均误差(mean_error, per-image mean): 0.1117 像素
+  - RMS(ret, OpenCV): 0.3238 像素
+  - 平均误差(mean_error, per-image mean): 0.1136 像素
   - 标定质量: 优秀
-  - 已保存 150 张检测图像到 results/visualization/step3_intrinsic_右/detection
-  - 已保存 150 张重投影图像到 results/visualization/step3_intrinsic_右/reprojection
+  - 已保存 443 张检测图像到 results/visualization/step3_intrinsic_右/detection
+  - 已保存 443 张重投影图像到 results/visualization/step3_intrinsic_右/reprojection
   - 正在生成去畸变图像...
-  - 已保存 150 张去畸变图像到 results/visualization/step3_intrinsic_右/undistorted
+  - 已保存 443 张去畸变图像到 results/visualization/step3_intrinsic_右/undistorted
   - 已保存: results/right_intrinsics.json
 
 ============================================================
@@ -61,15 +66,15 @@ Step 3: AprilTag 内参标定
 ============================================================
 
 左相机:
-  - fx = 1147.98, fy = 1148.20
-  - cx = 508.81, cy = 602.17
-  - 平均误差(mean_error) = 0.1165 像素
+  - fx = 1147.32, fy = 1147.33
+  - cx = 508.23, cy = 602.13
+  - 平均误差(mean_error) = 0.1178 像素
   - RMS(ret) 见上方标定日志
 
 右相机:
-  - fx = 1139.80, fy = 1139.55
-  - cx = 283.17, cy = 594.02
-  - 平均误差(mean_error) = 0.1117 像素
+  - fx = 1138.00, fy = 1138.15
+  - cx = 282.90, cy = 596.83
+  - 平均误差(mean_error) = 0.1136 像素
   - RMS(ret) 见上方标定日志
 
 下一步: 运行 python step4_stereo_extrinsic.py

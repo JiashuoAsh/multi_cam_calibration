@@ -31,7 +31,7 @@ from utils import (
 )
 
 # 最大有效图像对数量（用于双目外参标定）
-MAX_VALID_IMAGES = 150
+MAX_VALID_IMAGES = 1500
 
 
 def load_intrinsics(json_path):
@@ -56,7 +56,7 @@ def compute_mean_reproj_error_pnp(all_obj_pts, all_img_pts, K, dist):
         obj_pts = np.asarray(obj_pts, dtype=np.float64).reshape(-1, 3)
         img_pts = np.asarray(img_pts, dtype=np.float64).reshape(-1, 2)
 
-        if len(obj_pts) < 6:
+        if len(obj_pts) < 10:
             continue
 
         ok, rvec, tvec = cv2.solvePnP(
@@ -105,7 +105,7 @@ def compute_right_mean_reproj_error_using_rt(
         img_l = np.asarray(img_l, dtype=np.float64).reshape(-1, 2)
         img_r = np.asarray(img_r, dtype=np.float64).reshape(-1, 2)
 
-        if len(obj_pts) < 6:
+        if len(obj_pts) < 10:
             continue
 
         ok, rvec_l, tvec_l = cv2.solvePnP(
@@ -168,7 +168,7 @@ def compute_stereo_mean_reproj_error_using_rt(
         img_l = np.asarray(img_l, dtype=np.float64).reshape(-1, 2)
         img_r = np.asarray(img_r, dtype=np.float64).reshape(-1, 2)
 
-        if len(obj_pts) < 6:
+        if len(obj_pts) < 10:
             continue
 
         ok, rvec_l, tvec_l = cv2.solvePnP(
@@ -284,7 +284,7 @@ def collect_stereo_points(
         right_ids_flat = right_ids.flatten()
         common_ids = set(left_ids_flat) & set(right_ids_flat)
 
-        if len(common_ids) < 4:
+        if len(common_ids) < 10:
             continue
 
         # 收集共同标签的对应点
@@ -414,7 +414,7 @@ def main():
     )
 
     # 设置质量阈值（会聚式双目推荐 15+）
-    MIN_COMMON_TAGS = 7
+    MIN_COMMON_TAGS = 10
 
     keep_pairs, remove_pairs = filter_low_quality_pairs(
         image_quality, min_common_tags=MIN_COMMON_TAGS
@@ -422,8 +422,8 @@ def main():
 
     # 显示统计信息
     print(f"\n质量过滤结果:")
-    print(f"  ✅ 保留: {len(keep_pairs)} 对")
-    print(f"  ❌ 移除: {len(remove_pairs)} 对（<{MIN_COMMON_TAGS} 共同标签）")
+    print(f"  保留: {len(keep_pairs)} 对")
+    print(f"  移除: {len(remove_pairs)} 对（<{MIN_COMMON_TAGS} 共同标签）")
 
     if keep_pairs:
         common_counts = [q[2] for q in image_quality if q[2] >= MIN_COMMON_TAGS]
@@ -433,12 +433,12 @@ def main():
         print(f"  标准差: {np.std(common_counts):.1f} 个")
 
     if len(keep_pairs) < 10:
-        print(f"\n⚠️  警告: 只有 {len(keep_pairs)} 对高质量图像")
+        print(f"\n警告: 只有 {len(keep_pairs)} 对高质量图像")
         print(f"   会聚式双目建议至少 20 对优质图像以获得最佳标定质量")
         print(f"   当前配置可能导致标定精度降低")
 
     if len(keep_pairs) < 5:
-        print(f"\n❌ 错误: 高质量图像对太少（< 5 对）")
+        print(f"\n错误: 高质量图像对太少（< 5 对）")
         print(f"   无法进行可靠的双目标定")
         print(f"\n建议:")
         print(f"   1. 重新采集更多图像，确保标定板在两相机重叠视野中央")

@@ -321,8 +321,14 @@ def build_B_T_T_from_config(
         transform_cfg["translation"], dtype=np.float64
     ).reshape(3, 1)
 
+    # translation_reference_point_in_T_m: 参考点在 T 坐标系中的位置（米）
+    # 其中 T 坐标系原点为 Tag0 中心（由 create_apriltag_board 的 3D 点定义决定）。
+    ref_point_cfg = transform_cfg.get("translation_reference_point_in_T_m", None)
+
+    # 默认网格中心（tag 中心点的几何中心），用于：
+    # 1) 没配 ref_point 时兼容回退；2) 打印对照方便排查。
     tag_pitch_m = (board_cfg["tag_size"] + board_cfg["tag_spacing"]) / 1000.0
-    center_T = np.array(
+    default_grid_center_T = np.array(
         [
             (board_cfg["tags_x"] - 1) * tag_pitch_m / 2.0,
             (board_cfg["tags_y"] - 1) * tag_pitch_m / 2.0,
@@ -331,14 +337,31 @@ def build_B_T_T_from_config(
         dtype=np.float64,
     ).reshape(3, 1)
 
-    if translation_ref in ("board_center", "grid_center", "board_center_tag_grid"):
-        # center_B = R_B_T * center_T + origin_B
-        # origin_B = center_B - R_B_T * center_T
-        translation_B = translation_input_B - (R_B_T @ center_T)
-        print(f"  - 将板中心位置换算为Tag0位置")
-    else:
+    if translation_ref == "tag0_center":
         translation_B = translation_input_B
-        print(f"  - 直接使用translation作为Tag0位置")
+        print("  - 直接使用translation作为Tag0位置 (translation_reference=tag0_center)")
+    else:
+        if ref_point_cfg is None:
+            ref_point_T = default_grid_center_T
+            print(
+                "  未配置 translation_reference_point_in_T_m，回退使用默认网格中心(ref=grid_center)"
+            )
+        else:
+            ref_point_T = np.array(ref_point_cfg, dtype=np.float64)
+            if ref_point_T.size != 3:
+                raise ValueError(
+                    "translation_reference_point_in_T_m 期望长度为3的[x,y,z]（单位米）"
+                )
+            ref_point_T = ref_point_T.reshape(3, 1)
+
+        # ref_B = R_B_T * ref_T + origin_B
+        # origin_B(Tag0) = ref_B - R_B_T * ref_T
+        translation_B = translation_input_B - (R_B_T @ ref_point_T)
+        print(
+            f"  - translation_reference={translation_ref}: 使用translation_reference_point_in_T_m换算为Tag0位置"
+        )
+        print(f"    reference_point_T(m)      = {_fmt4(ref_point_T)}")
+        print(f"    default_grid_center_T(m)  = {_fmt4(default_grid_center_T)}")
 
     B_T_T = _make_transform(R_B_T, translation_B, "B_T_T")
     _pretty_mat("B_T_T", B_T_T)

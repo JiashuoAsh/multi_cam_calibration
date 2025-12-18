@@ -62,7 +62,7 @@ from utils import (
 )
 
 # 最大有效图像数量（用于内参标定）
-MAX_VALID_IMAGES = 150
+MAX_VALID_IMAGES = 1500
 
 
 def clean_visualization_dirs():
@@ -279,7 +279,7 @@ def calibrate_camera_apriltag(
             )
             cv2.putText(
                 vis_img,
-                
+
                 error_text,
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,

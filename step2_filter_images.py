@@ -376,8 +376,10 @@ def main():
             board=board,
         )
 
-        # 判断是否合格（左右都要合格）
-        is_pair_valid = left_valid and right_valid
+        # 判断是否合格
+        # step2 主要是以为了标定内参，所以要保证图片计量充满整个相机视角，不追求极限合格率
+        # 因此只要左右任意一张图像合格即可
+        is_pair_valid = left_valid or right_valid
 
         # 记录详情
         detail = {
