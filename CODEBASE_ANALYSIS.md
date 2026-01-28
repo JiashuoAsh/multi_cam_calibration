@@ -122,7 +122,7 @@ def _se3_exp(xi: np.ndarray) -> np.ndarray:
     w = xi[:3]  # rotation (axis-angle)
     v = xi[3:]  # translation
     theta = np.linalg.norm(w)
-    # ... Rodriguez formula implementation
+    # ... Rodrigues formula implementation
 ```
 
 **算法特点 / Algorithm Features**:

@@ -88,7 +88,7 @@ rms_error, K, dist, rvecs, tvecs = cv2.calibrateCamera(
 # SE(3) 位姿图优化
 def _se3_exp(xi: np.ndarray) -> np.ndarray:
     """正确的李群指数映射实现"""
-    # Rodriguez 公式
+    # Rodrigues' 公式
     # 流形约束优化
 ```
 - ✅ SE(3) 流形优化
