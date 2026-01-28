@@ -1,71 +1,15 @@
 #!/usr/bin/env python3
-"""
-Camera Wrapper for AprilTag Calibration
+"""Camera Wrapper for AprilTag Calibration (video-only)
 
-统一的相机接口封装，支持多种相机类型：
-1. custom_usb_stereo: USB双目拼接相机（单设备输出2560宽度图像，自动分割旋转）
-2. mipi: MIPI相机接口（使用Acemate_A2的VideoCaptureV4L2c）
+本仓库当前主流程以“离线视频(mp4)”为输入，因此这里只保留 video_stereo 的封装。
 
-核心设计：
-- 统一的read_stereo()接口，返回(left_frame, right_frame, timestamp)
-- 自动处理图像分割、旋转等预处理
-- 支持时间戳同步
-- 兼容Acemate_A2项目的相机接口
+如果你需要恢复旧的硬件采集（USB/MIPI/Acemate_A2 hit 驱动）代码，请从历史版本或 archive 目录中找回。
 
-Author: Camera Calibration Team
-Date: 2025-12
+统一接口：read_stereo() -> (left_frame, right_frame, timestamp_sec)
 """
 
-import os
-import sys
 import cv2
 import numpy as np
-
-
-def import_acemate_hit():
-    """
-    动态导入Acemate_A2项目的VideoCaptureV4L2c_usb模块
-
-    该函数尝试从多个可能的路径导入VideoCaptureV4L2c_usb模块，
-    用于支持自定义USB双目拼接相机。
-
-    搜索路径：
-    1. ~/Acemate_A2/src/hit/hit/VideoCaptureV4L2c_usb
-    2. ~/Acemate_A2/src/hit/VideoCaptureV4L2c_usb
-    3. ~/Acemate_A2/install/hit/lib/python3.12/site-packages
-
-    Returns:
-        VideoCaptureV4L2c: VideoCaptureV4L2c_usb模块类
-        None: 如果模块不可用
-    """
-    HOME_DIR = os.path.expanduser("~")
-
-    # Try multiple possible paths
-    possible_paths = [
-        os.path.join(HOME_DIR, "Acemate_A2", "src", "hit", "hit"),  # Nested hit/
-        os.path.join(HOME_DIR, "Acemate_A2", "src", "hit"),  # Original path
-        os.path.join(
-            HOME_DIR,
-            "Acemate_A2",
-            "install",
-            "hit",
-            "lib",
-            "python3.12",
-            "site-packages",
-        ),
-    ]
-
-    for path in possible_paths:
-        if os.path.isdir(path) and (path not in sys.path):
-            sys.path.insert(0, path)
-
-    try:
-        from hit import VideoCaptureV4L2c_usb as VideoCaptureV4L2c
-
-        return VideoCaptureV4L2c
-    except ImportError as e:
-        print(f"⚠ Warning: Could not import VideoCaptureV4L2c_usb: {e}")
-        return None
 
 
 class BaseCameraWrapper:
@@ -135,337 +79,229 @@ class BaseCameraWrapper:
         return self.is_open
 
 
-class USBStereoCamera(BaseCameraWrapper):
-    """
-    USB双目拼接相机封装
+class VideoStereoCamera(BaseCameraWrapper):
+    """基于视频文件的双目输入封装。
 
-    适用于单个USB设备输出2560x720拼接图像的双目相机。
-    图像处理流程：
-    1. 读取2560x720的拼接图像
-    2. 中点分割：右半部分→左相机，左半部分→右相机
-    3. 旋转校正：左图逆时针90°，右图顺时针90°
-    4. 输出：两张1280x960的校正图像
+    适用场景：
+    - 两路 RGB 相机各自录制为独立视频文件（left/right 两个 mp4）
+    - 单个视频文件为左右拼接（side-by-side），需要按中线切割
 
-    使用Acemate_A2的VideoCaptureV4L2c_usb接口访问硬件。
+    说明：
+    - read_stereo() 的语义保持与硬件相机一致：返回 (left_frame, right_frame, timestamp_sec)
+    - timestamp_sec 优先使用 CAP_PROP_POS_MSEC（若后端支持），否则用帧序号 / fps 估计
 
-    Attributes:
-        cap: VideoCaptureV4L2c相机对象
-        VideoCaptureV4L2c: VideoCaptureV4L2c模块类
-    """
+    配置字段（camera_settings）：
+      - camera_type: 固定为 "video_stereo"
+      - video_mode: "two_files" | "single_sbs"（默认 two_files）
 
-    def __init__(self, config):
-        """
-        初始化USB双目拼接相机
+      two_files 模式：
+        - video_left_path: 左视频路径
+        - video_right_path: 右视频路径
 
-        Args:
-            config (dict): 必须包含:
-                - device_path: 设备路径（如'/dev/video40'）
-                - raw_width: 原始图像宽度（默认2560）
-                - raw_height: 原始图像高度（默认720）
-        """
-        super().__init__(config)
-        self.cap = None
-        self.VideoCaptureV4L2c = None
+            single_sbs 模式：
+        - video_path: 拼接视频路径
+                - sbs_layout: "lr" | "rl" （默认 "rl"；rl 表示：右半->left，左半->right）
 
-    def open(self):
-        """Open custom USB stereo camera"""
-        # Import custom VideoCaptureV4L2c
-        self.VideoCaptureV4L2c = import_acemate_hit()
-        if self.VideoCaptureV4L2c is None:
-            print(
-                "❌ Error: VideoCaptureV4L2c_usb not found. Check Acemate_A2 installation."
-            )
-            return False
-
-        device_path = self.config.get("device_path", "/dev/video40")
-        raw_width = self.config.get("raw_width", 2560)
-        raw_height = self.config.get("raw_height", 720)
-
-        print(
-            f"Opening custom USB stereo camera: {device_path} ({raw_width}x{raw_height})"
-        )
-
-        try:
-            self.cap = self.VideoCaptureV4L2c.VideoCapture(
-                device_path, width=raw_width, height=raw_height
-            )
-
-            if not (self.cap.open() and self.cap.start_capture()):
-                print(f"❌ Error: Failed to open custom USB camera at {device_path}")
-                return False
-
-            self.is_open = True
-            print(f"✓ Opened custom USB stereo camera: {device_path}")
-            return True
-
-        except Exception as e:
-            print(f"❌ Error opening custom USB camera: {e}")
-            return False
-
-    def read_stereo(self):
-        """
-        读取拼接图像并分割为左右图像
-
-        图像处理步骤（基于step1逻辑）：
-        1. 从设备读取2560x720的拼接图像
-        2. 中点分割：
-           - 左相机 = 图像右半部分 [mid:end]
-           - 右相机 = 图像左半部分 [0:mid]
-        3. 旋转校正：
-           - 左图：逆时针旋转90° (ROTATE_90_COUNTERCLOCKWISE)
-           - 右图：顺时针旋转90° (ROTATE_90_CLOCKWISE)
-        4. 时间戳转换：微秒→秒
-
-        Returns:
-            tuple: (left_frame, right_frame, timestamp_sec)
-                - left_frame: 校正后的左图 (1280x960)
-                - right_frame: 校正后的右图 (1280x960)
-                - timestamp_sec: 时间戳（秒）
-            或 (None, None, None): 读取失败
-        """
-        if not self.is_open:
-            return None, None, None
-
-        try:
-            frame, timestamp = self.cap.read()  # type: ignore
-
-            if frame is None:
-                return None, None, None
-
-            # Split image at midpoint
-            h, w = frame.shape[:2]
-            mid_point = w // 2
-
-            # Step1 logic: right half -> left camera, left half -> right camera
-            left_part = frame[:, mid_point:]  # Right half
-            right_part = frame[:, :mid_point]  # Left half
-
-            # Rotate to correct orientation
-            left_part = cv2.rotate(left_part, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            right_part = cv2.rotate(right_part, cv2.ROTATE_90_CLOCKWISE)
-
-            # Convert timestamp from microseconds to seconds
-            timestamp_sec = timestamp * 1e-6
-
-            return left_part, right_part, timestamp_sec
-
-        except Exception as e:
-            print(f"❌ Error reading from custom USB camera: {e}")
-            return None, None, None
-
-    def release(self):
-        """Release custom camera"""
-        if self.cap:
-            self.cap.release()
-        self.is_open = False
-
-
-class MIPICameraWrapper(BaseCameraWrapper):
-    """
-    MIPI相机封装
-
-    适用于使用MIPI CSI接口的独立左右相机。
-    每个相机对应独立的/dev/videoX设备节点。
-
-    特性：
-    - 使用Acemate_A2的VideoCaptureV4L2c接口
-    - 支持从config.CAMERA_ORDER自动获取设备ID
-    - 支持高分辨率图像（如3840x2160）
-    - 提供微秒级时间戳
-
-    配置来源优先级：
-    1. config/apriltag_config.json中的显式配置
-    2. Acemate_A2的config.CAMERA_ORDER
-    3. 默认分辨率：3840x2160
-
-    Attributes:
-        cap_left: 左相机VideoCapture对象
-        cap_right: 右相机VideoCapture对象
-        VideoCaptureV4L2c: VideoCaptureV4L2c模块类
-        config_module: Acemate_A2的config模块（用于读取默认配置）
+      可选：
+        - rotate_left: "none"|"cw90"|"ccw90"|"180"（默认 none）
+        - rotate_right: 同上（默认 none）
+        - force_resize_width/force_resize_height: 强制 resize 到统一尺寸（谨慎使用，默认不启用）
     """
 
     def __init__(self, config):
-        """
-        初始化MIPI相机
-
-        Args:
-            config (dict): 可选包含:
-                - left_camera_id: 左相机设备号
-                - right_camera_id: 右相机设备号
-                - image_width: 图像宽度
-                - image_height: 图像高度
-        """
         super().__init__(config)
         self.cap_left = None
         self.cap_right = None
-        self.VideoCaptureV4L2c = None
-        self.config_module = None
+        self.cap = None
+
+        self.video_mode = str(config.get("video_mode", "two_files"))
+        self.sbs_layout = str(config.get("sbs_layout", "rl"))
+
+        self.rotate_left = str(config.get("rotate_left", "none"))
+        self.rotate_right = str(config.get("rotate_right", "none"))
+
+        self.force_resize_width = config.get("force_resize_width", None)
+        self.force_resize_height = config.get("force_resize_height", None)
+
+        self._frame_index = 0
+        self._fps_left = None
+        self._fps_right = None
+        self._fps_single = None
 
     def open(self):
-        """Open MIPI cameras using VideoCaptureV4L2c"""
-        # Import Acemate_A2 modules
-        VideoCaptureV4L2c = self._import_mipi_modules()
-        if VideoCaptureV4L2c is None:
-            print(
-                "❌ Error: VideoCaptureV4L2c not found. Check Acemate_A2 installation."
-            )
-            return False
-
-        self.VideoCaptureV4L2c = VideoCaptureV4L2c
-
-        # Get camera IDs from config or Acemate_A2 config
-        left_id = self._get_camera_id("left")
-        right_id = self._get_camera_id("right")
-
-        if left_id < 0 or right_id < 0:
-            print(f"❌ Error: Invalid camera IDs (left={left_id}, right={right_id})")
-            return False
-
-        # Get resolution from config or Acemate_A2 config
-        width = self.config.get(
-            "image_width", getattr(self.config_module, "READ_CAMERA_WIDTH", 3840)
-        )
-        height = self.config.get(
-            "image_height", getattr(self.config_module, "READ_CAMERA_HEIGHT", 2160)
-        )
-
-        print(
-            f"Opening MIPI cameras: left=/dev/video{left_id}, right=/dev/video{right_id} ({width}x{height})"
-        )
-
         try:
-            # Open left camera
-            self.cap_left = VideoCaptureV4L2c.VideoCapture(
-                f"/dev/video{left_id}", width=width, height=height
-            )
-            if not (self.cap_left.open() and self.cap_left.start_capture()):
-                print(
-                    f"❌ Error: Failed to open left MIPI camera at /dev/video{left_id}"
-                )
-                return False
+            if self.video_mode == "two_files":
+                left_path = self.config.get("video_left_path")
+                right_path = self.config.get("video_right_path")
+                if not left_path or not right_path:
+                    print("❌ Error: video_left_path / video_right_path is required for video_mode=two_files")
+                    return False
 
-            # Open right camera
-            self.cap_right = VideoCaptureV4L2c.VideoCapture(
-                f"/dev/video{right_id}", width=width, height=height
-            )
-            if not (self.cap_right.open() and self.cap_right.start_capture()):
-                print(
-                    f"❌ Error: Failed to open right MIPI camera at /dev/video{right_id}"
-                )
-                self.cap_left.release()
-                self.cap_left = None
-                return False
+                self.cap_left = cv2.VideoCapture(str(left_path))
+                self.cap_right = cv2.VideoCapture(str(right_path))
 
-            self.is_open = True
-            print(f"✓ Opened MIPI cameras: left={left_id}, right={right_id}")
-            return True
+                if not self.cap_left.isOpened():
+                    print(f"❌ Error: Failed to open left video: {left_path}")
+                    return False
+                if not self.cap_right.isOpened():
+                    print(f"❌ Error: Failed to open right video: {right_path}")
+                    return False
+
+                self._fps_left = float(self.cap_left.get(cv2.CAP_PROP_FPS) or 0.0)
+                self._fps_right = float(self.cap_right.get(cv2.CAP_PROP_FPS) or 0.0)
+
+                self.is_open = True
+                print(f"✓ Opened stereo videos (two_files):\n  left={left_path}\n  right={right_path}")
+                return True
+
+            if self.video_mode == "single_sbs":
+                path = self.config.get("video_path")
+                if not path:
+                    print("❌ Error: video_path is required for video_mode=single_sbs")
+                    return False
+
+                self.cap = cv2.VideoCapture(str(path))
+                if not self.cap.isOpened():
+                    print(f"❌ Error: Failed to open video: {path}")
+                    return False
+
+                self._fps_single = float(self.cap.get(cv2.CAP_PROP_FPS) or 0.0)
+
+                self.is_open = True
+                print(f"✓ Opened stereo video (single_sbs): {path} (layout={self.sbs_layout})")
+                return True
+
+            print(f"❌ Error: Unknown video_mode: {self.video_mode}. Supported: two_files, single_sbs")
+            return False
 
         except Exception as e:
-            print(f"❌ Error opening MIPI cameras: {e}")
+            print(f"❌ Error opening video stereo source: {e}")
             return False
 
-    def _import_mipi_modules(self):
-        """Import VideoCaptureV4L2c and config from Acemate_A2"""
-        HOME_DIR = os.path.expanduser("~")
-
-        # Try multiple possible paths
-        possible_paths = [
-            os.path.join(HOME_DIR, "Acemate_A2", "src", "hit", "hit"),
-            os.path.join(HOME_DIR, "Acemate_A2", "src", "hit"),
-            os.path.join(HOME_DIR, "Acemate_A2", "src"),
-        ]
-
-        for path in possible_paths:
-            if os.path.isdir(path) and (path not in sys.path):
-                sys.path.insert(0, path)
-
-        try:
-            # Try to import config
-            try:
-                from hit.cfgs import config
-
-                self.config_module = config
-            except:
-                try:
-                    from hit import config
-
-                    self.config_module = config
-                except:
-                    print("⚠ Warning: Could not import config from Acemate_A2")
-                    self.config_module = None
-
-            # Try to import VideoCaptureV4L2c
-            try:
-                from hit.camera import VideoCaptureV4L2c
-
-                return VideoCaptureV4L2c
-            except:
-                try:
-                    from hit import VideoCaptureV4L2c
-
-                    return VideoCaptureV4L2c
-                except Exception as e:
-                    print(f"⚠ Warning: Could not import VideoCaptureV4L2c: {e}")
-                    return None
-        except Exception as e:
-            print(f"⚠ Warning: Error importing MIPI modules: {e}")
+    def _apply_rotate(self, img, rotate_mode: str):
+        if img is None:
             return None
 
-    def _get_camera_id(self, side):
-        """Get camera ID for left or right side"""
-        # First try from apriltag_config
-        if side == "left":
-            cam_id = self.config.get("left_camera_id", -1)
-        else:
-            cam_id = self.config.get("right_camera_id", -1)
+        rotate_mode = (rotate_mode or "none").lower()
+        if rotate_mode == "none":
+            return img
+        if rotate_mode == "cw90":
+            return cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+        if rotate_mode == "ccw90":
+            return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        if rotate_mode == "180":
+            return cv2.rotate(img, cv2.ROTATE_180)
 
-        # If not specified, try from Acemate_A2 config
-        if cam_id < 0 and self.config_module:
-            camera_order = getattr(self.config_module, "CAMERA_ORDER", [])
-            if len(camera_order) >= 2:
-                cam_id = camera_order[0] if side == "left" else camera_order[1]
+        raise ValueError(f"Unknown rotate mode: {rotate_mode}. Use one of: none, cw90, ccw90, 180")
 
-        return cam_id
+    def _maybe_resize(self, img):
+        if img is None:
+            return None
+        if self.force_resize_width is None or self.force_resize_height is None:
+            return img
+        try:
+            w = int(self.force_resize_width)
+            h = int(self.force_resize_height)
+            if w <= 0 or h <= 0:
+                return img
+            return cv2.resize(img, (w, h), interpolation=cv2.INTER_AREA)
+        except Exception:
+            return img
+
+    def _timestamp_from_cap(self, cap, fps: float, frame_index: int) -> float:
+        """尽力从 cap 获取时间戳（秒）。"""
+        ts_sec = None
+        try:
+            pos_msec = float(cap.get(cv2.CAP_PROP_POS_MSEC) or 0.0)
+            if pos_msec > 0:
+                ts_sec = pos_msec / 1000.0
+        except Exception:
+            ts_sec = None
+
+        if ts_sec is None:
+            if fps and fps > 0:
+                ts_sec = float(frame_index) / float(fps)
+            else:
+                # 最差兜底：用帧序号当“时间”
+                ts_sec = float(frame_index)
+
+        return float(ts_sec)
 
     def read_stereo(self):
-        """Read from both MIPI cameras"""
         if not self.is_open:
             return None, None, None
 
         try:
-            # Read from both cameras
-            frame_left, ts_left = self.cap_left.read()
-            frame_right, ts_right = self.cap_right.read()
+            if self.video_mode == "two_files":
+                assert self.cap_left is not None and self.cap_right is not None
 
-            if frame_left is None or frame_right is None:
-                return None, None, None
+                ok_l, frame_l = self.cap_left.read()
+                ok_r, frame_r = self.cap_right.read()
+                if (not ok_l) or (not ok_r) or frame_l is None or frame_r is None:
+                    return None, None, None
 
-            # Use left camera timestamp (in microseconds), convert to seconds
-            timestamp_sec = ts_left * 1e-6 if ts_left else 0
+                # 处理旋转/resize
+                frame_l = self._maybe_resize(self._apply_rotate(frame_l, self.rotate_left))
+                frame_r = self._maybe_resize(self._apply_rotate(frame_r, self.rotate_right))
 
-            return frame_left, frame_right, timestamp_sec
+                # 时间戳（两路取平均；若一侧不可用则取另一侧）
+                ts_l = self._timestamp_from_cap(self.cap_left, self._fps_left or 0.0, self._frame_index)
+                ts_r = self._timestamp_from_cap(self.cap_right, self._fps_right or 0.0, self._frame_index)
+
+                ts_candidates = [v for v in [ts_l, ts_r] if v is not None]
+                timestamp_sec = float(np.mean(ts_candidates)) if ts_candidates else float(self._frame_index)
+
+                self._frame_index += 1
+                return frame_l, frame_r, timestamp_sec
+
+            if self.video_mode == "single_sbs":
+                assert self.cap is not None
+                ok, frame = self.cap.read()
+                if (not ok) or frame is None:
+                    return None, None, None
+
+                h, w = frame.shape[:2]
+                mid = w // 2
+                if mid <= 0:
+                    return None, None, None
+
+                layout = (self.sbs_layout or "rl").lower()
+                if layout == "rl":
+                    # 与 USBStereoCamera / step1 逻辑一致：右半->left，左半->right
+                    left_part = frame[:, mid:]
+                    right_part = frame[:, :mid]
+                elif layout == "lr":
+                    left_part = frame[:, :mid]
+                    right_part = frame[:, mid:]
+                else:
+                    raise ValueError(f"Unknown sbs_layout: {self.sbs_layout}. Use lr or rl")
+
+                left_part = self._maybe_resize(self._apply_rotate(left_part, self.rotate_left))
+                right_part = self._maybe_resize(self._apply_rotate(right_part, self.rotate_right))
+
+                timestamp_sec = self._timestamp_from_cap(self.cap, self._fps_single or 0.0, self._frame_index)
+                self._frame_index += 1
+                return left_part, right_part, timestamp_sec
+
+            return None, None, None
 
         except Exception as e:
-            print(f"❌ Error reading from MIPI cameras: {e}")
+            print(f"❌ Error reading from video stereo source: {e}")
             return None, None, None
 
     def release(self):
-        """Release both MIPI cameras"""
-        if self.cap_left:
-            try:
+        try:
+            if self.cap_left is not None:
                 self.cap_left.release()
-            except:
-                pass
-            self.cap_left = None
-
-        if self.cap_right:
-            try:
+            if self.cap_right is not None:
                 self.cap_right.release()
-            except:
-                pass
-            self.cap_right = None
-
+            if self.cap is not None:
+                self.cap.release()
+        except Exception:
+            pass
+        self.cap_left = None
+        self.cap_right = None
+        self.cap = None
         self.is_open = False
 
 
@@ -479,8 +315,7 @@ def create_camera(config):
     Args:
         config (dict): 相机配置字典，必须包含'camera_type'字段
             支持的类型：
-            - 'custom_usb_stereo': USB双目拼接相机
-            - 'mipi': MIPI相机
+            - 'video_stereo': 离线视频双目输入（two_files / single_sbs）
 
     Returns:
         BaseCameraWrapper: 相机封装实例
@@ -489,75 +324,16 @@ def create_camera(config):
         ValueError: 如果camera_type不支持
 
     Example:
-        >>> config = {'camera_type': 'custom_usb_stereo', ...}
+        >>> config = {'camera_type': 'video_stereo', 'video_mode': 'two_files', 'video_left_path': 'left.mp4', 'video_right_path': 'right.mp4'}
         >>> camera = create_camera(config)
         >>> camera.open()
         >>> left, right, ts = camera.read_stereo()
     """
-    camera_type = config.get("camera_type", "custom_usb_stereo")
+    camera_type = config.get("camera_type", "video_stereo")
 
-    if camera_type == "custom_usb_stereo":
-        return USBStereoCamera(config)
-    elif camera_type == "mipi":
-        return MIPICameraWrapper(config)
-    else:
-        raise ValueError(
-            f"Unknown camera type: {camera_type}. Supported: custom_usb_stereo, mipi"
-        )
+    if camera_type == "video_stereo":
+        return VideoStereoCamera(config)
 
-
-def test_camera(config):
-    """Test camera initialization and frame capture"""
-    print("\n" + "=" * 60)
-    print("  Camera Test")
-    print("=" * 60)
-
-    camera = create_camera(config)
-
-    print(f"\nCamera type: {config.get('camera_type', 'custom_usb_stereo')}")
-
-    if not camera.open():
-        print("❌ Failed to open camera")
-        return False
-
-    print("\nReading test frame...")
-    left, right, timestamp = camera.read_stereo()
-
-    if left is None or right is None:
-        print("❌ Failed to read frames")
-        camera.release()
-        return False
-
-    print(f"✓ Read successful!")
-    print(f"  Left:  {left.shape}")
-    print(f"  Right: {right.shape}")
-    print(f"  Timestamp: {timestamp:.6f}")
-
-    # Display frames
-    scale = 0.5
-    left_small = cv2.resize(left, None, fx=scale, fy=scale)
-    right_small = cv2.resize(right, None, fx=scale, fy=scale)
-    combined = np.hstack([left_small, right_small])
-
-    cv2.imshow("Camera Test - Press any key to exit", combined)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    camera.release()
-    print("\n✓ Camera test completed successfully")
-    print("=" * 60 + "\n")
-    return True
-
-
-if __name__ == "__main__":
-    # Test with default config
-    test_config = {
-        "camera_type": "custom_usb_stereo",
-        "device_path": "/dev/video40",
-        "raw_width": 2560,
-        "raw_height": 720,
-        "image_width": 1280,
-        "image_height": 960,
-    }
-
-    test_camera(test_config)
+    raise ValueError(
+        f"Unknown camera type: {camera_type}. This workspace is configured for video-only calibration. Supported: video_stereo"
+    )

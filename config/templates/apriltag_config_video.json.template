@@ -1,0 +1,99 @@
+{
+  "_comment": "=== 离线 mp4 双目视频配置模板（video-only）===",
+  "_comment_usage": "使用方法: cp apriltag_config_video.json.template config/apriltag_config.json 然后修改视频路径与标定板参数",
+
+  "camera_settings": {
+    "camera_type": "video_stereo",
+
+    "video_mode": "two_files",
+    "_comment_video_mode": "two_files=左右各一段视频；single_sbs=单视频左右拼接",
+
+    "video_left_path": "videos/203.mp4",
+    "video_right_path": "videos/204.mp4",
+
+    "video_path": "videos/stereo_sbs.mp4",
+    "sbs_layout": "rl",
+
+    "rotate_left": "none",
+    "rotate_right": "none",
+
+    "force_resize_width": null,
+    "force_resize_height": null,
+
+    "note": "建议优先运行 step1_extract_imgs_from_video.py 抽帧落盘后再跑 Step2~Step4。Windows 路径建议用 C:/xxx/yyy.mp4 或相对路径。"
+  },
+
+  "video_extract": {
+    "_comment": "Step1 抽帧参数（step1_extract_imgs_from_video.py 会读取这里）。",
+
+    "every_n": 10,
+    "_comment_every_n": "每 N 帧保存 1 帧（越大越稀疏，默认 10）",
+
+    "max_pairs": 300,
+    "_comment_max_pairs": "最多保存多少对图像（0=不限；默认 300）",
+
+    "start_frame": 0,
+    "_comment_start_frame": "从第几帧开始（0-based；与 start_sec 二选一；若 start_sec>0 则优先按时间 seek）",
+
+    "start_sec": 0.0,
+    "_comment_start_sec": "从第几秒开始（默认 0；优先级高于 start_frame）",
+
+    "out_dir": "images/raw",
+    "_comment_out_dir": "输出目录（会生成 out_dir/left 与 out_dir/right）",
+
+    "prefix": "frame_",
+    "_comment_prefix": "输出文件名前缀（会拼接 6 位 frame index，例如 frame_000120.png）",
+
+    "overwrite": false,
+    "_comment_overwrite": "是否清空 out_dir/left 与 out_dir/right 后再写入（谨慎使用）"
+  },
+
+  "image_dataset": {
+    "_comment": "（可选）多相机图片数据集输入：启用后 Step2/Step3/Step4 将按此配置自动处理多相机。",
+    "enabled": false,
+    "raw_root": "images/raw",
+    "filtered_root": "images/filtered",
+    "sync": {"key": "stem", "mode": "intersection"},
+    "cameras": {
+      "left": {"raw_dir": "images/raw/left"},
+      "right": {"raw_dir": "images/raw/right"}
+    }
+  },
+
+  "step5_dataset": {
+    "_comment": "（可选）Step5 相机->底盘外参标定的数据集输入：启用后 step5b_camera_to_base.py 将按此配置自动处理多相机。",
+    "enabled": false,
+    "image_root": "images/step5",
+    "cameras": {
+      "left": {"raw_dir": "images/step5/left"},
+      "right": {"raw_dir": "images/step5/right"}
+    }
+  },
+
+  "apriltag_board": {
+    "_comment": "AprilTag标定板配置 - 必须精确测量！",
+    "family": "tag36h11",
+    "tags_x": 6,
+    "tags_y": 6,
+    "tag_size": 55.0,
+    "tag_spacing": 16.5,
+    "unit": "mm"
+  },
+
+  "calibration_settings": {
+    "min_tags_for_pose": 4,
+    "max_images": 300,
+
+    "corner_refinement": "CORNER_REFINE_SUBPIX",
+
+    "detection": {
+      "use_multiscale": true,
+      "opencv_refine": true,
+
+      "profile": "balanced",
+      "roi": null,
+      "auto_roi": false,
+      "detector_params": {}
+    }
+  }
+}

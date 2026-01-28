@@ -179,7 +179,7 @@ def invert_base_T_camera_to_world2cam(B_T_C: np.ndarray) -> tuple[np.ndarray, np
 
 
 def format_matrix_json(
-    left_R, left_T, right_R, right_T, left_mtx, left_dist, right_mtx, right_dist
+    left_R, left_T, right_R, right_T, left_mtx, left_dist, right_mtx, right_dist, timestamp=None
 ):
     """
     格式化标定结果为 OpenCV 矩阵格式
@@ -195,12 +195,14 @@ def format_matrix_json(
         left_dist: 左相机畸变系数
         right_mtx: 右相机内参矩阵 (3x3)
         right_dist: 右相机畸变系数
+        timestamp: 时间戳字符串
 
     Returns:
         data: 格式化的字典列表
     """
     data = [
         {
+            "timestamp": timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "cameraLeft": {
                 "R": left_R.tolist(),
                 "T": left_T.reshape(-1, 1).tolist(),
@@ -230,6 +232,7 @@ def format_eula_json(
     right_dist,
     reproj_error_left=0.0,
     reproj_error_right=0.0,
+    timestamp=None,
 ):
     """
     格式化标定结果为紧凑的欧拉角字符串格式
@@ -249,6 +252,7 @@ def format_eula_json(
         right_dist: 右相机畸变系数
         reproj_error_left: 左相机重投影误差
         reproj_error_right: 右相机重投影误差
+        timestamp: 时间戳字符串
 
     Returns:
         data: 格式化的字典列表
@@ -290,6 +294,7 @@ def format_eula_json(
 
     data = [
         {
+            "timestamp": timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "date": date_str,
             "cameraLeft": left_str,
             "cameraRight": right_str,
@@ -386,15 +391,17 @@ def main():
             print("  请先运行 python step4_stereo_extrinsic.py")
             return
 
-    # 生成日期字符串
-    date_string = datetime.now().strftime("%Y%m%d")
+    # 生成日期字符串和时间戳
+    now = datetime.now()
+    date_string = now.strftime("%Y%m%d")
+    timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
 
     # 格式化输出
     print("\n生成输出文件...")
 
     # 1. 矩阵格式
     matrix_data = format_matrix_json(
-        R_left, t_left, R_right, t_right, K_l, dist_l, K_r, dist_r
+        R_left, t_left, R_right, t_right, K_l, dist_l, K_r, dist_r, timestamp
     )
 
     matrix_filename = f"id_car_matrix_{date_string}.json"
@@ -415,6 +422,7 @@ def main():
         dist_r,
         reproj_error_left,
         reproj_error_right,
+        timestamp,
     )
 
     eula_filename = f"id_car_eula_{date_string}.json"

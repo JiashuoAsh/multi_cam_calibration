@@ -18,9 +18,11 @@ Step 4: 双目外参标定 - AprilTag 标定板
 
 import cv2
 import numpy as np
+import argparse
 import json
 import os
 import glob
+from typing import Optional
 from utils import (
     load_config,
     get_aruco_dict,
@@ -28,10 +30,58 @@ from utils import (
     create_apriltag_board,
     create_opencv_aruco_board,
     get_detection_settings,
+    get_detection_profile,
+    get_detection_roi,
+    get_detection_auto_roi,
+    create_detector_params,
 )
 
 # 最大有效图像对数量（用于双目外参标定）
-MAX_VALID_IMAGES = 1500
+MAX_VALID_IMAGES = 50
+
+# 默认质量过滤阈值：每对图像至少需要的共同标签数（与 --min_common_tags 默认一致）
+MIN_COMMON_TAGS_DEFAULT = 1
+# 每张图像最少需要检测到的标签数（用于 collect_stereo_points 的单目门槛）。
+# - None: 跟随 MIN_COMMON_TAGS（默认，保持当前行为）
+# - int : 使用固定值（例如 4），便于更严格地剔除“单目检测很少标签”的图像。
+MIN_TAGS_PER_IMAGE_DEFAULT = 1
+
+# 用于“PnP/重投影误差统计”的最小标签数（注意：仅影响误差统计时是否跳过某一视角，不影响 stereoCalibrate）。
+# 原先代码里写死了 "len(obj_pts) < 10" —— 这是一个经验阈值，但确实属于隐藏超参数。
+# 这里改成显式常量，默认取 1（即 1 个 tag = 4 个角点，就足够 solvePnP 跑起来；想更稳可改大）。
+MIN_PNP_TAGS_PER_VIEW = 1
+# 默认尽量安静：保留关键指标输出；矩阵/几何细节用 --verbose。
+VERBOSE: bool = True
+
+def _safe_imwrite(path: str, img) -> bool:
+    """
+    兼容中文路径的写图：优先 cv2.imwrite，失败则使用 imencode + Python 写文件。
+    """
+    try:
+        if cv2.imwrite(path, img):
+            return True
+    except Exception:
+        pass
+
+    ext = os.path.splitext(path)[1] or ".jpg"  # 需要带点，例如 ".jpg"
+    try:
+        ok, buf = cv2.imencode(ext, img)
+        if not ok:
+            print(f"  警告: imencode 失败，无法写入: {path}")
+            return False
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(buf.tobytes())
+        return True
+    except Exception as e:
+        print(f"  警告: 写入失败: {path} ({e})")
+        return False
+
+
+def _vprint(*args, **kwargs) -> None:
+    """Verbose print (guarded by VERBOSE)."""
+    if VERBOSE:
+        print(*args, **kwargs)
 
 
 def load_intrinsics(json_path):
@@ -56,7 +106,8 @@ def compute_mean_reproj_error_pnp(all_obj_pts, all_img_pts, K, dist):
         obj_pts = np.asarray(obj_pts, dtype=np.float64).reshape(-1, 3)
         img_pts = np.asarray(img_pts, dtype=np.float64).reshape(-1, 2)
 
-        if len(obj_pts) < 10:
+        # 1 个 tag = 4 个角点；少于该阈值时 solvePnP 容易不稳定，统计时跳过该视角。
+        if len(obj_pts) < int(max(1, int(MIN_PNP_TAGS_PER_VIEW))) * 4:
             continue
 
         ok, rvec, tvec = cv2.solvePnP(
@@ -105,7 +156,7 @@ def compute_right_mean_reproj_error_using_rt(
         img_l = np.asarray(img_l, dtype=np.float64).reshape(-1, 2)
         img_r = np.asarray(img_r, dtype=np.float64).reshape(-1, 2)
 
-        if len(obj_pts) < 10:
+        if len(obj_pts) < int(max(1, int(MIN_PNP_TAGS_PER_VIEW))) * 4:
             continue
 
         ok, rvec_l, tvec_l = cv2.solvePnP(
@@ -168,7 +219,7 @@ def compute_stereo_mean_reproj_error_using_rt(
         img_l = np.asarray(img_l, dtype=np.float64).reshape(-1, 2)
         img_r = np.asarray(img_r, dtype=np.float64).reshape(-1, 2)
 
-        if len(obj_pts) < 10:
+        if len(obj_pts) < int(max(1, int(MIN_PNP_TAGS_PER_VIEW))) * 4:
             continue
 
         ok, rvec_l, tvec_l = cv2.solvePnP(
@@ -213,6 +264,7 @@ def collect_stereo_points(
     obj_points_all,
     tag_ids,
     aruco_dict,
+    detector_params,
     *,
     use_multiscale: bool,
     opencv_refine: bool,
@@ -221,6 +273,11 @@ def collect_stereo_points(
     dist_l,
     K_r,
     dist_r,
+    roi_left=None,
+    roi_right=None,
+    auto_roi_cfg=None,
+    min_common_tags: int = MIN_COMMON_TAGS_DEFAULT,
+    min_tags_per_image: Optional[int] = MIN_TAGS_PER_IMAGE_DEFAULT,
     max_valid_images: int = MAX_VALID_IMAGES,
 ):
     """
@@ -232,8 +289,15 @@ def collect_stereo_points(
     print("\n收集双目对应点...")
     print(f"  - 最大有效图像对: {max_valid_images}")
 
-    detector_params = cv2.aruco.DetectorParameters()
-    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+    if detector_params is None:
+        detector_params = cv2.aruco.DetectorParameters()
+
+    auto_roi_cfg = auto_roi_cfg or {}
+    min_common_tags = int(max(1, int(min_common_tags)))
+    # None 表示“跟随 min_common_tags”（更好地与 Step2/质量过滤阈值保持一致）
+    if min_tags_per_image is None:
+        min_tags_per_image = int(min_common_tags)
+    min_tags_per_image = int(max(1, int(min_tags_per_image)))
 
     all_obj_pts = []
     all_img_pts_l = []
@@ -261,6 +325,11 @@ def collect_stereo_points(
             board=board,
             camera_matrix=K_l,
             dist_coeffs=dist_l,
+            roi=roi_left,
+            auto_roi=bool(auto_roi_cfg.get("enabled", False)),
+            auto_roi_pre_scale=float(auto_roi_cfg.get("pre_scale", 0.5)),
+            auto_roi_min_tags=int(auto_roi_cfg.get("min_tags", 1)),
+            auto_roi_margin=float(auto_roi_cfg.get("margin", 0.25)),
         )
         right_corners, right_ids = detect_apriltag_corners(
             right_gray,
@@ -271,12 +340,18 @@ def collect_stereo_points(
             board=board,
             camera_matrix=K_r,
             dist_coeffs=dist_r,
+            roi=roi_right,
+            auto_roi=bool(auto_roi_cfg.get("enabled", False)),
+            auto_roi_pre_scale=float(auto_roi_cfg.get("pre_scale", 0.5)),
+            auto_roi_min_tags=int(auto_roi_cfg.get("min_tags", 1)),
+            auto_roi_margin=float(auto_roi_cfg.get("margin", 0.25)),
         )
 
-        if left_ids is None or right_ids is None:
+        if left_ids is None or right_ids is None or left_corners is None or right_corners is None:
             continue
 
-        if len(left_ids) < 4 or len(right_ids) < 4:
+        # 与 Step2 对齐：不要在这里硬编码 4；由 min_tags_per_image/min_common_tags 控制。
+        if len(left_ids) < min_tags_per_image or len(right_ids) < min_tags_per_image:
             continue
 
         # 找到左右图像中共同检测到的标签
@@ -284,7 +359,8 @@ def collect_stereo_points(
         right_ids_flat = right_ids.flatten()
         common_ids = set(left_ids_flat) & set(right_ids_flat)
 
-        if len(common_ids) < 10:
+        # 与前面的质量过滤阈值保持一致（避免“前面保留，后面全拒绝”）。
+        if len(common_ids) < min_common_tags:
             continue
 
         # 收集共同标签的对应点
@@ -335,6 +411,35 @@ def collect_stereo_points(
 
 def main():
     """主函数"""
+    parser = argparse.ArgumentParser(description="Step4：AprilTag 双目外参标定（默认仅关键指标，--verbose 打印矩阵细节）")
+    # parser.add_argument("--verbose", action="store_true", help="打印 R/t 矩阵、会聚几何等额外信息")
+    parser.add_argument(
+        "--min_common_tags",
+        type=int,
+        default=MIN_COMMON_TAGS_DEFAULT,
+        help=f"质量过滤：每对图像至少需要的共同标签数（默认 {MIN_COMMON_TAGS_DEFAULT}）",
+    )
+    parser.add_argument(
+        "--no_multiscale",
+        action="store_true",
+        help="强制关闭多尺度检测（更快，但对小标签/远距离可能更不稳）。",
+    )
+    parser.add_argument(
+        "--no_opencv_refine",
+        action="store_true",
+        help="强制关闭 OpenCV refine（更快）。",
+    )
+    parser.add_argument(
+        "--max_valid_pairs",
+        type=int,
+        default=MAX_VALID_IMAGES,
+        help=f"最多使用多少对有效图像进行标定（默认 {MAX_VALID_IMAGES}）",
+    )
+    args = parser.parse_args()
+
+    # global VERBOSE
+    # VERBOSE = bool(args.verbose)
+
     print("=" * 60)
     print("Step 4: AprilTag 双目外参标定")
     print("=" * 60)
@@ -361,12 +466,23 @@ def main():
     # 加载配置
     config = load_config()
     use_multiscale, opencv_refine = get_detection_settings(config)
+    if bool(getattr(args, "no_multiscale", False)):
+        use_multiscale = False
+    if bool(getattr(args, "no_opencv_refine", False)):
+        opencv_refine = False
+
+    # Step4 以 Step2 为准：复用同一套 detection profile / ROI / auto_roi / detector 参数
+    profile = get_detection_profile(config)
+    left_roi = get_detection_roi(config, camera="left")
+    right_roi = get_detection_roi(config, camera="right")
+    auto_roi_cfg = get_detection_auto_roi(config)
+    detector_params = create_detector_params(config)
 
     # 加载内参
     print("\n加载内参...")
     K_l, dist_l = load_intrinsics("results/left_intrinsics.json")
     K_r, dist_r = load_intrinsics("results/right_intrinsics.json")
-    print("  ✓ 左右相机内参已加载")
+    print("  [OK] 左右相机内参已加载")
 
     # 创建 AprilTag 标定板
     obj_points, tag_ids = create_apriltag_board(config)
@@ -390,12 +506,24 @@ def main():
     if len(left_images) != len(right_images):
         print(f"\n警告: 左右图像数量不匹配 ({len(left_images)} vs {len(right_images)})")
 
-    print(f"\n找到 {len(left_images)} 对图像 (来源: images/{image_source}/)")
+    n_pairs_total = min(len(left_images), len(right_images))
+    left_images = left_images[:n_pairs_total]
+    right_images = right_images[:n_pairs_total]
+
+    print(f"\n找到 {n_pairs_total} 对图像 (来源: images/{image_source}/)")
 
     # ========== 自动质量过滤 ==========
     print("\n分析图像对质量...")
-    detector_params = cv2.aruco.DetectorParameters()
-    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+    if VERBOSE:
+        print(f"  - detection profile: {profile}")
+        if left_roi is not None or right_roi is not None:
+            print(f"  - left ROI: {left_roi}")
+            print(f"  - right ROI: {right_roi}")
+        if bool((auto_roi_cfg or {}).get("enabled", False)):
+            print(
+                "  - auto_roi: enabled "
+                f"(pre_scale={auto_roi_cfg.get('pre_scale')}, min_tags={auto_roi_cfg.get('min_tags')}, margin={auto_roi_cfg.get('margin')})"
+            )
 
     from utils import analyze_stereo_image_quality, filter_low_quality_pairs
 
@@ -411,10 +539,15 @@ def main():
         left_dist_coeffs=dist_l,
         right_camera_matrix=K_r,
         right_dist_coeffs=dist_r,
+        left_roi=left_roi,
+        right_roi=right_roi,
+        auto_roi_cfg=auto_roi_cfg,
+        early_stop_min_common_tags=int(args.min_common_tags),
+        early_stop_keep_pairs=int(args.max_valid_pairs),
     )
 
     # 设置质量阈值（会聚式双目推荐 15+）
-    MIN_COMMON_TAGS = 10
+    MIN_COMMON_TAGS = int(args.min_common_tags)
 
     keep_pairs, remove_pairs = filter_low_quality_pairs(
         image_quality, min_common_tags=MIN_COMMON_TAGS
@@ -424,6 +557,7 @@ def main():
     print(f"\n质量过滤结果:")
     print(f"  保留: {len(keep_pairs)} 对")
     print(f"  移除: {len(remove_pairs)} 对（<{MIN_COMMON_TAGS} 共同标签）")
+    print(f"  扫描: {len(image_quality)}/{n_pairs_total} 对（达到足够保留样本后提前停止扫描）")
 
     if keep_pairs:
         common_counts = [q[2] for q in image_quality if q[2] >= MIN_COMMON_TAGS]
@@ -452,12 +586,18 @@ def main():
     # ========== 质量过滤结束 ==========
 
     # 收集双目对应点
+    # 与质量过滤阈值对齐：min_common_tags=MIN_COMMON_TAGS；单目最少 tags 也取同一量级，避免硬编码导致“全拒绝”。
+    if MIN_TAGS_PER_IMAGE_DEFAULT is None:
+        min_tags_per_image = max(1, int(MIN_COMMON_TAGS))
+    else:
+        min_tags_per_image = max(1, int(MIN_TAGS_PER_IMAGE_DEFAULT))
     all_obj_pts, all_img_pts_l, all_img_pts_r, valid_pairs = collect_stereo_points(
         left_images,
         right_images,
         obj_points,
         tag_ids,
         aruco_dict,
+        detector_params,
         use_multiscale=use_multiscale,
         opencv_refine=opencv_refine,
         board=board,
@@ -465,7 +605,12 @@ def main():
         dist_l=dist_l,
         K_r=K_r,
         dist_r=dist_r,
-        max_valid_images=MAX_VALID_IMAGES,
+        roi_left=left_roi,
+        roi_right=right_roi,
+        auto_roi_cfg=auto_roi_cfg,
+        min_common_tags=int(MIN_COMMON_TAGS),
+        min_tags_per_image=int(min_tags_per_image),
+        max_valid_images=int(args.max_valid_pairs),
     )
 
     if len(valid_pairs) < 5:
@@ -474,6 +619,9 @@ def main():
 
     # 获取图像尺寸
     img = cv2.imread(valid_pairs[0][0])
+    if img is None:
+        print("\n错误: 无法读取用于获取 image_size 的图像")
+        return
     image_size = (img.shape[1], img.shape[0])
 
     # 执行双目标定
@@ -589,7 +737,7 @@ def main():
     with open("results/stereo_extrinsics.json", "w") as f:
         json.dump(extrinsics, f, indent=2)
 
-    print("  ✓ 已保存: results/stereo_extrinsics.json")
+    print("  [OK] 已保存: results/stereo_extrinsics.json")
 
 
     # 立体校正
@@ -621,7 +769,7 @@ def main():
     with open("results/stereo_rectification.json", "w") as f:
         json.dump(rectification, f, indent=2)
 
-    print("  ✓ 已保存: results/stereo_rectification.json")
+    print("  [OK] 已保存: results/stereo_rectification.json")
 
     # 生成立体校正效果图
     print("\n生成立体校正效果图...")
@@ -629,6 +777,9 @@ def main():
     # 使用第一对图像
     left_img = cv2.imread(valid_pairs[0][0])
     right_img = cv2.imread(valid_pairs[0][1])
+    if left_img is None or right_img is None:
+        print("\n错误: 无法读取用于立体校正 demo 的图像")
+        return
 
     # 计算映射
     map1_l, map2_l = cv2.initUndistortRectifyMap(
@@ -669,9 +820,8 @@ def main():
         2,
     )
 
-    cv2.imwrite("results/stereo_rectification_demo.jpg", demo)
-    print("  ✓ 已保存: results/stereo_rectification_demo.jpg")
-    print("  提示: 检查绿色水平线是否对齐，验证校正效果")
+    _safe_imwrite("results/stereo_rectification_demo.jpg", demo)
+    print("  [OK] 已保存: results/stereo_rectification_demo.jpg")
 
     # 显示总结
     print("\n" + "=" * 60)
@@ -683,11 +833,14 @@ def main():
     print(f"  - OpenCV ret (RMS): {ret:.4f} 像素")
     print(f"  - 使用图像对: {len(valid_pairs)}")
 
-    print("\n旋转矩阵 R (左->右, cam1=Left, cam2=Right; X_right = R * X_left + t):")
-    print(R)
+    if VERBOSE:
+        print("\n旋转矩阵 R (左->右, cam1=Left, cam2=Right; X_right = R * X_left + t):")
+        print(R)
 
-    print("\n平移向量 t (左->右, 单位:mm):")
-    print(t.flatten())
+        print("\n平移向量 t (左->右, 单位:mm):")
+        print(t.flatten())
+    else:
+        print("\n(提示) 使用 --verbose 可打印 R/t 矩阵与会聚几何细节")
 
     # 会聚式双目特殊说明
     from scipy.spatial.transform import Rotation
@@ -696,17 +849,20 @@ def main():
     euler = rot.as_euler("xyz", degrees=True)
     convergence_angle = abs(euler[1])
 
-    print(f"\n会聚式双目几何:")
-    print(f"  - 会聚角: {convergence_angle:.2f}°")
-    print(f"  - 垂直偏移: {t.flatten()[1]:.2f} mm")
-    print(f"  - 前后偏移: {t.flatten()[2]:.2f} mm")
+    if VERBOSE:
+        print(f"\n会聚式双目几何:")
+        print(f"  - 会聚角: {convergence_angle:.2f}°")
+        print(f"  - 垂直偏移: {t.flatten()[1]:.2f} mm")
+        print(f"  - 前后偏移: {t.flatten()[2]:.2f} mm")
 
     print("\n质量检查:")
     print("  - 打开 results/stereo_rectification_demo.jpg")
     print("  - 确认左右图像的水平线对齐")
     print("  - 如果对齐良好，说明标定成功")
 
-    print("\n下一步: (可选) 运行 python step5_camera_to_base.py")
+    print("\n下一步: (可选) 进行 Step5 相机->底盘标定")
+    print("  1) 准备 images/step5/left 与 images/step5/right 的图像对（可由视频抽帧获得）")
+    print("  2) 运行: python step5b_camera_to_base.py")
 
 
 if __name__ == "__main__":

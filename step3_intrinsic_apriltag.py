@@ -6,7 +6,9 @@ Step 3: 内参标定 - AprilTag 标定板
     A_T_B 表示 "B -> A 的变换" (X_A = A_T_B @ X_B)
 
 功能:
-    使用筛选后的合格图像进行左右相机的内参标定。
+    使用筛选后的合格图像进行相机内参标定。
+    - 默认仍按 left/right 双目流程运行
+    - 也支持 --cameras 指定 3-4 路（或更多）相机
     计算相机内参矩阵 K 和畸变系数 dist。
 
 工作流程:
@@ -24,18 +26,16 @@ Step 3: 内参标定 - AprilTag 标定板
     python step3_intrinsic_apriltag.py
 
 输入:
-    - images/filtered/left/*.png: 筛选后的左相机图像
-    - images/filtered/right/*.png: 筛选后的右相机图像
+    - images/filtered/<cam>/*.(png|jpg|jpeg|bmp): 筛选后的相机图像（推荐）
+    - images/raw/<cam>/*.(png|jpg|jpeg|bmp): 原始图像（filtered 缺失时回退）
     - config/apriltag_config.json: 标定板配置
 
 输出:
-    - results/left_intrinsics.json: 左相机内参
+        - results/<cam>_intrinsics.json: 相机内参
       - camera_matrix: 3x3 内参矩阵 K
       - dist_coeffs: 畸变系数 [k1, k2, p1, p2, k3, ...]
       - reprojection_error: 重投影误差（像素）
-    - results/right_intrinsics.json: 右相机内参
-    - results/left_undistortion_demo.jpg: 去畸变效果对比
-    - results/right_undistortion_demo.jpg
+        - （可选）results/visualization/step3_intrinsic_<cam>/*: 检测与重投影可视化
 
 质量评估:
     - 重投影误差 < 0.5 像素: 优秀
@@ -43,15 +43,19 @@ Step 3: 内参标定 - AprilTag 标定板
     - 重投影误差 > 1.0 像素: 需要改进（检查标定板或图像质量）
 
 下一步:
-    运行 python step4_stereo_extrinsic.py 进行双目外参标定
+    - 双目：运行 python step4_stereo_extrinsic.py
+    - 多相机：运行 python step4_multi_extrinsic_pose_graph.py
 """
 
 import cv2
 import numpy as np
+import argparse
 import json
 import os
 import glob
 import shutil
+from typing import Any
+from pathlib import Path
 from utils import (
     load_config,
     get_aruco_dict,
@@ -59,23 +63,128 @@ from utils import (
     create_apriltag_board,
     create_opencv_aruco_board,
     get_detection_settings,
+    get_detection_profile,
+    get_detection_roi,
+    get_detection_auto_roi,
+    create_detector_params,
+    get_image_dataset,
+    get_dataset_cameras,
+    get_camera_raw_images,
+    get_camera_filtered_dir,
+    get_camera_filtered_images,
 )
 
 # 最大有效图像数量（用于内参标定）
-MAX_VALID_IMAGES = 1500
+MAX_VALID_IMAGES = 50
+MIN_TAGS = 1
+
+
+# 默认尽量安静：只输出关键结果；需要逐张处理细节用 --verbose。
+VERBOSE: bool = True
+
+
+def _uniform_subsample_files(files: list[str], max_scan: int) -> list[str]:
+    """Uniformly subsample file list to at most max_scan items.
+
+    This is a small speed knob to avoid running AprilTag detection on hundreds of
+    frames when only a limited number of valid samples are needed.
+    """
+    n = len(files)
+    if max_scan <= 0 or max_scan >= n:
+        return files
+    # linspace is monotonic; int rounding may create adjacent duplicates.
+    idx = np.linspace(0, n - 1, num=int(max_scan), dtype=int)
+    out: list[str] = []
+    last = None
+    for i in idx:
+        ii = int(i)
+        if last is None or ii != last:
+            out.append(files[ii])
+            last = ii
+    return out
+
+def _safe_imwrite(path: str, img) -> bool:
+    """
+    兼容中文路径的写图：优先 cv2.imwrite，失败则使用 imencode + Python 写文件。
+    """
+    try:
+        if cv2.imwrite(path, img):
+            return True
+    except Exception:
+        pass
+
+    ext = os.path.splitext(path)[1] or ".jpg"  # 需要带点，例如 ".jpg"
+    try:
+        ok, buf = cv2.imencode(ext, img)
+        if not ok:
+            print(f"  警告: imencode 失败，无法写入: {path}")
+            return False
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(buf.tobytes())
+        return True
+    except Exception as e:
+        print(f"  警告: 写入失败: {path} ({e})")
+        return False
+
+
+def _vprint(*args, **kwargs) -> None:
+    """Verbose print (guarded by VERBOSE)."""
+    if VERBOSE:
+        print(*args, **kwargs)
 
 
 def clean_visualization_dirs():
     """清空 step3 的可视化输出目录"""
-    vis_dirs = [
-        "results/visualization/step3_intrinsic_左",
-        "results/visualization/step3_intrinsic_右",
-    ]
+    base = Path("results/visualization")
+    if not base.exists():
+        return
 
-    for vis_dir in vis_dirs:
-        if os.path.exists(vis_dir):
-            shutil.rmtree(vis_dir)
-            print(f"  已清空: {vis_dir}")
+    # 兼容旧输出：step3_intrinsic_左 / step3_intrinsic_右
+    for p in sorted(base.glob("step3_intrinsic_*")):
+        if p.is_dir():
+            shutil.rmtree(str(p))
+            _vprint(f"  已清空: {p.as_posix()}")
+
+
+def _glob_images(dir_path: str) -> list[str]:
+    out: list[str] = []
+    for ext in ("*.png", "*.jpg", "*.jpeg", "*.bmp"):
+        out.extend(glob.glob(os.path.join(dir_path, ext)))
+    return sorted(out)
+
+
+def _scan_cameras_from_source(source: str) -> list[str]:
+    base = Path("images") / source
+    if not base.exists():
+        return []
+    cams: list[str] = []
+    for p in sorted(base.iterdir()):
+        if not p.is_dir():
+            continue
+        files = _glob_images(str(p))
+        if len(files) > 0:
+            cams.append(p.name)
+    return cams
+
+
+def _pick_images_for_camera(cam: str) -> tuple[list[str], str]:
+    """为单个相机挑选图像列表，并返回 (files, source)。
+
+    优先 filtered；若 filtered 为空则回退 raw。
+    """
+    filtered_dir = os.path.join("images", "filtered", cam)
+    raw_dir = os.path.join("images", "raw", cam)
+
+    files = _glob_images(filtered_dir) if os.path.isdir(filtered_dir) else []
+    if len(files) > 0:
+        return files, "filtered"
+
+    files = _glob_images(raw_dir) if os.path.isdir(raw_dir) else []
+    if len(files) > 0:
+        return files, "raw"
+
+    return [], ""
 
 
 def calibrate_camera_apriltag(
@@ -85,11 +194,15 @@ def calibrate_camera_apriltag(
     aruco_dict,
     side_name,
     *,
+    detector_params,
     use_multiscale: bool,
     opencv_refine: bool,
     board,
+    roi=None,
+    auto_roi_cfg=None,
     save_visualization: bool = True,
     max_valid_images: int = MAX_VALID_IMAGES,
+    min_tags: int = MIN_TAGS,
 ):
     """
     使用 AprilTag 标定单个相机的内参
@@ -119,8 +232,14 @@ def calibrate_camera_apriltag(
     print(f"\n{side_name}相机标定:")
     print(f"  - 图像数量: {len(image_files)}")
     print(f"  - 最大有效图像: {max_valid_images}")
+    if min_tags != 5:
+        print(f"  - min_tags: {min_tags}")
 
     # 创建可视化输出目录
+    vis_base = None
+    detection_dir = None
+    reprojection_dir = None
+    undistorted_dir = None
     if save_visualization:
         vis_base = f"results/visualization/step3_intrinsic_{side_name.lower()}"
         detection_dir = f"{vis_base}/detection"
@@ -129,11 +248,9 @@ def calibrate_camera_apriltag(
         os.makedirs(detection_dir, exist_ok=True)
         os.makedirs(reprojection_dir, exist_ok=True)
         os.makedirs(undistorted_dir, exist_ok=True)
-        print(f"  - 可视化目录: {vis_base}")
+        _vprint(f"  - 可视化目录: {vis_base}")
 
-    # 设置检测器参数
-    detector_params = cv2.aruco.DetectorParameters()
-    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+    # detector_params 由外部统一创建（便于 profile/配置调参）
 
     # 收集所有有效图像的 2D-3D 对应点
     all_obj_pts = []
@@ -141,17 +258,21 @@ def calibrate_camera_apriltag(
     valid_images = []
     valid_image_data = []  # 保存图像数据用于后续可视化
     image_size = None
+    n_read_fail = 0
+    n_low_tags = 0
 
     for img_idx, img_path in enumerate(image_files):
         img = cv2.imread(img_path)
         if img is None:
-            print(f"  警告: 无法读取 {img_path}")
+            n_read_fail += 1
+            _vprint(f"  警告: 无法读取 {img_path}")
             continue
 
         if image_size is None:
             image_size = (img.shape[1], img.shape[0])
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        auto_roi_cfg = auto_roi_cfg or {}
         corners, ids = detect_apriltag_corners(
             gray,
             aruco_dict,
@@ -159,11 +280,17 @@ def calibrate_camera_apriltag(
             use_multiscale=use_multiscale,
             opencv_refine=opencv_refine,
             board=board,
+            roi=roi,
+            auto_roi=bool(auto_roi_cfg.get("enabled", False)),
+            auto_roi_pre_scale=float(auto_roi_cfg.get("pre_scale", 0.5)),
+            auto_roi_min_tags=int(auto_roi_cfg.get("min_tags", 1)),
+            auto_roi_margin=float(auto_roi_cfg.get("margin", 0.25)),
         )
 
-        if ids is None or len(ids) < 5:
-            print(
-                f"  跳过 {os.path.basename(img_path)}: 检测到的标签不足 ({len(ids) if ids is not None else 0})"
+        if ids is None or corners is None or len(ids) < int(min_tags):
+            n_low_tags += 1
+            _vprint(
+                f"  跳过 {os.path.basename(img_path)}: 标签不足 ({len(ids) if ids is not None else 0} < {min_tags})"
             )
             continue
 
@@ -197,6 +324,7 @@ def calibrate_camera_apriltag(
 
             # 保存数据用于可视化
             if save_visualization:
+                assert detection_dir is not None
                 valid_image_data.append(
                     {
                         "image": img.copy(),
@@ -222,23 +350,35 @@ def calibrate_camera_apriltag(
                 detection_path = (
                     f"{detection_dir}/{len(valid_images):02d}_tags_detected.jpg"
                 )
-                cv2.imwrite(detection_path, vis_img)
+                _safe_imwrite(detection_path, vis_img)
 
     print(f"  - 有效图像: {len(valid_images)}/{len(image_files)}")
+    if (n_read_fail or n_low_tags) and (not VERBOSE):
+        # 默认只给一个汇总，细节用 --verbose
+        parts = []
+        if n_read_fail:
+            parts.append(f"读取失败 {n_read_fail}")
+        if n_low_tags:
+            parts.append(f"标签不足 {n_low_tags}")
+        print(f"  - 跳过统计: {', '.join(parts)}")
 
     if len(valid_images) < 3:
         print(f"  错误: 有效图像太少 (<3)")
         return False, None, None, None, None, None, None
 
+    assert image_size is not None
+
     # 执行相机标定
     print("  - 正在标定...")
 
+    # OpenCV 允许用 None 让其自动初始化；但类型存根对 None 不友好。
+    none_umat: Any = None
     ret, K, dist, rvecs, tvecs = cv2.calibrateCamera(
         all_obj_pts,
         all_img_pts,
         image_size,
-        None,
-        None,
+        none_umat,
+        none_umat,
     )
 
     # OpenCV 返回的 ret 是全局 RMS 重投影误差（单位：像素）
@@ -279,7 +419,6 @@ def calibrate_camera_apriltag(
             )
             cv2.putText(
                 vis_img,
-
                 error_text,
                 (20, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
@@ -300,7 +439,7 @@ def calibrate_camera_apriltag(
             reproj_path = (
                 f"{reprojection_dir}/{valid_image_data[i]['index']:02d}_error_map.jpg"
             )
-            cv2.imwrite(reproj_path, vis_img)
+            _safe_imwrite(reproj_path, vis_img)
 
     mean_error /= len(all_obj_pts)
 
@@ -317,22 +456,38 @@ def calibrate_camera_apriltag(
     print(f"  - 标定质量: {quality}")
 
     if save_visualization:
-        print(f"  - 已保存 {len(valid_images)} 张检测图像到 {detection_dir}")
-        print(f"  - 已保存 {len(valid_images)} 张重投影图像到 {reprojection_dir}")
+        assert detection_dir is not None
+        assert reprojection_dir is not None
+        assert undistorted_dir is not None
+        _vprint(f"  - 已保存 {len(valid_images)} 张检测图像到 {detection_dir}")
+        _vprint(f"  - 已保存 {len(valid_images)} 张重投影图像到 {reprojection_dir}")
 
         # 保存所有图像的去畸变版本
         print(f"  - 正在生成去畸变图像...")
 
         # 使用第一张图像的尺寸创建去畸变映射（所有图像尺寸相同）
         first_img = cv2.imread(valid_images[0])
+        if first_img is None:
+            print("  警告: 无法读取第一张有效图像，跳过去畸变输出")
+            return True, K, dist, rvecs, tvecs, mean_error, image_size
         h, w = first_img.shape[:2]
 
         # 使用 remap 方法进行去畸变（推荐方法）
         # 保持原始内参矩阵K，不改变图像尺寸，只矫正畸变
-        mapx, mapy = cv2.initUndistortRectifyMap(K, dist, None, K, (w, h), cv2.CV_32FC1)
+        mapx, mapy = cv2.initUndistortRectifyMap(
+            K,
+            dist,
+            none_umat,
+            K,
+            (w, h),
+            cv2.CV_32FC1,
+        )
 
         for i, img_path in enumerate(valid_images):
             img = cv2.imread(img_path)
+            if img is None:
+                _vprint(f"  警告: 无法读取图像，跳过去畸变: {img_path}")
+                continue
 
             # 使用remap进行去畸变（比undistort更快且效果更好）
             img_undist = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
@@ -340,9 +495,9 @@ def calibrate_camera_apriltag(
             # 保存去畸变图像（保持原始尺寸720x1280，不缩放）
             base_name = os.path.basename(img_path)
             undist_path = f"{undistorted_dir}/{i + 1:02d}_undistorted_{base_name}"
-            cv2.imwrite(undist_path, img_undist)
+            _safe_imwrite(undist_path, img_undist)
 
-        print(f"  - 已保存 {len(valid_images)} 张去畸变图像到 {undistorted_dir}")
+        _vprint(f"  - 已保存 {len(valid_images)} 张去畸变图像到 {undistorted_dir}")
 
     return True, K, dist, rvecs, tvecs, mean_error, image_size
 
@@ -368,112 +523,215 @@ def save_intrinsics(output_path, K, dist, reproj_error, image_size):
 
 def main():
     """主函数"""
+    parser = argparse.ArgumentParser(description="Step3：AprilTag 内参标定（默认安静，--verbose 可看更多过程信息）")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config/apriltag_config.json",
+        help="配置文件路径（默认 config/apriltag_config.json）",
+    )
+    # parser.add_argument("--verbose", action="store_true", help="输出逐张图像的检测/跳过原因等过程信息")
+    parser.add_argument(
+        "--no_vis",
+        action="store_true",
+        help="不保存可视化输出（detection/reprojection/undistorted），更快更省空间",
+    )
+    parser.add_argument(
+        "--max_valid_images",
+        type=int,
+        default=MAX_VALID_IMAGES,
+        help=f"最多使用多少张有效图像进行标定（默认 {MAX_VALID_IMAGES}）",
+    )
+    parser.add_argument(
+        "--min_tags",
+        type=int,
+        default=5,
+        help="每张图像至少需要检测到多少个标签才算有效（默认 5）",
+    )
+
+    parser.add_argument(
+        "--cameras",
+        nargs="*",
+        default=None,
+        help=(
+            "要标定的相机名称列表（对应 images/<source>/<cam>/...）。"
+            "不传则自动扫描 images/filtered（为空再扫 images/raw）。默认双目工程推荐 left right。"
+        ),
+    )
+
+    parser.add_argument(
+        "--no_multiscale",
+        action="store_true",
+        help="强制关闭多尺度检测（更快，但对小标签/远距离可能更不稳）。",
+    )
+    parser.add_argument(
+        "--no_opencv_refine",
+        action="store_true",
+        help="强制关闭 OpenCV refine（更快）。",
+    )
+
+    parser.add_argument(
+        "--max_scan_images",
+        type=int,
+        default=0,
+        help=(
+            "Max number of candidate images to run AprilTag detection on (0=auto). "
+            "This is a speed cap to avoid scanning the full dataset."
+        ),
+    )
+    args = parser.parse_args()
+
+    # global VERBOSE
+    # VERBOSE = bool(args.verbose)
+
     print("=" * 60)
     print("Step 3: AprilTag 内参标定")
     print("=" * 60)
 
-    # 清空之前的可视化输出
-    print("\n清理旧的可视化文件...")
-    clean_visualization_dirs()
+    # 清空之前的可视化输出（若禁用可视化则不清理，避免误删旧结果）
+    if not args.no_vis:
+        print("\n清理旧的可视化文件...")
+        clean_visualization_dirs()
 
-    # 检查图像目录（优先 filtered，若为空则回退到 raw）
-    if (not os.path.exists("images/filtered/left") or not os.path.exists("images/filtered/right")) and (
-        not os.path.exists("images/raw/left") or not os.path.exists("images/raw/right")
-    ):
-        print("\n错误: 未找到图像目录 images/filtered 或 images/raw")
+    # 加载配置
+    config = load_config(str(args.config))
+    ds = get_image_dataset(config)
+    use_dataset = bool(ds.get("enabled", False))
+
+    # 确定要标定的相机列表（优先 CLI，其次 config.image_dataset，再次扫描目录）
+    cameras = list(args.cameras) if args.cameras is not None and len(args.cameras) > 0 else []
+    if len(cameras) == 0 and use_dataset:
+        cameras = get_dataset_cameras(config, allow_scan=True, fallback_stereo=True)
+    if len(cameras) == 0:
+        cameras = _scan_cameras_from_source("filtered")
+        if len(cameras) == 0:
+            cameras = _scan_cameras_from_source("raw")
+    if len(cameras) == 0:
+        print("\n错误: 未找到任何相机图像目录 images/filtered/<cam>/ 或 images/raw/<cam>/")
         print("请先采集图像（或运行 python step2_filter_images.py 生成 filtered 图像）")
         return
 
-    # 加载配置
-    config = load_config()
-
     use_multiscale, opencv_refine = get_detection_settings(config)
+    if bool(getattr(args, "no_multiscale", False)):
+        use_multiscale = False
+    if bool(getattr(args, "no_opencv_refine", False)):
+        opencv_refine = False
+    profile = get_detection_profile(config)
+    auto_roi_cfg = get_detection_auto_roi(config)
+    detector_params = create_detector_params(config)
 
     # 创建 AprilTag 标定板
     obj_points, tag_ids = create_apriltag_board(config)
     aruco_dict = get_aruco_dict(config["apriltag_board"]["family"])
     board = create_opencv_aruco_board(obj_points, tag_ids, aruco_dict)
 
-    # 获取图像文件（优先 filtered，若为空则回退到 raw）
-    left_images = sorted(glob.glob("images/filtered/left/*.png"))
-    right_images = sorted(glob.glob("images/filtered/right/*.png"))
-    image_source = "filtered"
-    if len(left_images) == 0 or len(right_images) == 0:
-        left_images = sorted(glob.glob("images/raw/left/*.png"))
-        right_images = sorted(glob.glob("images/raw/right/*.png"))
-        image_source = "raw"
+    # 收集每个相机的图像文件（每个相机独立：优先 filtered，若为空则回退 raw）
+    cam_to_images: dict[str, list[str]] = {}
+    cam_to_source: dict[str, str] = {}
+    for cam in cameras:
+        if use_dataset:
+            filtered_imgs = get_camera_filtered_images(config, cam)
+            if len(filtered_imgs) > 0:
+                cam_to_images[cam] = [str(p) for p in filtered_imgs]
+                cam_to_source[cam] = "filtered"
+            else:
+                raw_imgs = get_camera_raw_images(config, cam)
+                cam_to_images[cam] = [str(p) for p in raw_imgs]
+                cam_to_source[cam] = "raw"
+        else:
+            files, src = _pick_images_for_camera(cam)
+            cam_to_images[cam] = files
+            cam_to_source[cam] = src
 
-    if len(left_images) == 0 or len(right_images) == 0:
-        print("\n错误: 未找到图像！")
-        print("请先采集图像（或运行 python step2_filter_images.py 生成 filtered 图像）")
+    missing = [c for c in cameras if len(cam_to_images.get(c, [])) == 0]
+    if len(missing) > 0:
+        print("\n错误: 以下相机未找到任何图像：")
+        for c in missing:
+            print(f"  - {c} (期望 images/filtered/{c}/ 或 images/raw/{c}/)")
         return
 
-    print(f"\n找到图像 (来源: images/{image_source}/):")
-    print(f"  - 左相机: {len(left_images)} 张")
-    print(f"  - 右相机: {len(right_images)} 张")
+    print("\n找到图像：")
+    for cam in cameras:
+        if use_dataset:
+            if cam_to_source[cam] == "filtered":
+                src_dir = get_camera_filtered_dir(config, cam)
+            else:
+                # raw 可能来自 glob，不一定在 raw_root/<cam>
+                src_dir = Path("<raw>")
+            print(f"  - {cam}: {len(cam_to_images[cam])} 张 (source={cam_to_source[cam]})")
+        else:
+            print(f"  - {cam}: {len(cam_to_images[cam])} 张 (images/{cam_to_source[cam]}/{cam}/)")
+    print(f"  - detection profile: {profile}")
+    if bool(auto_roi_cfg.get("enabled", False)):
+        print(
+            "  - auto_roi: enabled "
+            f"(pre_scale={auto_roi_cfg.get('pre_scale')}, min_tags={auto_roi_cfg.get('min_tags')}, margin={auto_roi_cfg.get('margin')})"
+        )
 
     # 确保输出目录存在
     os.makedirs("results", exist_ok=True)
 
-    # 标定左相机
-    success_l, K_l, dist_l, rvecs_l, tvecs_l, err_l, img_size_l = (
-        calibrate_camera_apriltag(
-            left_images,
+    # Limit how many images to run detection on (huge speedup for large datasets).
+    auto_scan = int(args.max_valid_images) * 8
+    max_scan = int(args.max_scan_images) if int(args.max_scan_images) > 0 else auto_scan
+    max_scan = max(int(args.max_valid_images), int(max_scan))
+
+    # 逐相机标定
+    per_cam_summary: list[tuple[str, np.ndarray, float]] = []
+    for cam in cameras:
+        images = cam_to_images[cam]
+        images_scan = _uniform_subsample_files(list(images), max_scan=max_scan)
+        if len(images_scan) != len(images):
+            print(
+                f"\n为加速检测，仅扫描部分候选图片: {cam} {len(images_scan)}/{len(images)} (max_scan={max_scan})"
+            )
+
+        roi = get_detection_roi(config, camera=cam)
+        if roi is not None:
+            print(f"\n{cam} ROI: {roi}")
+
+        display_name = cam
+        success, K, dist, rvecs, tvecs, err, img_size = calibrate_camera_apriltag(
+            images_scan,
             obj_points,
             tag_ids,
             aruco_dict,
-            "左",
+            display_name,
+            detector_params=detector_params,
             use_multiscale=use_multiscale,
             opencv_refine=opencv_refine,
             board=board,
-            max_valid_images=MAX_VALID_IMAGES,
+            roi=roi,
+            auto_roi_cfg=auto_roi_cfg,
+            save_visualization=(not args.no_vis),
+            max_valid_images=int(args.max_valid_images),
+            min_tags=int(args.min_tags),
         )
-    )
 
-    if success_l:
-        save_intrinsics("results/left_intrinsics.json", K_l, dist_l, err_l, img_size_l)
-    else:
-        print("\n错误: 左相机标定失败！")
-        return
+        if not success:
+            print(f"\n错误: 相机 {cam} 标定失败！")
+            return
 
-    # 标定右相机
-    success_r, K_r, dist_r, rvecs_r, tvecs_r, err_r, img_size_r = (
-        calibrate_camera_apriltag(
-            right_images,
-            obj_points,
-            tag_ids,
-            aruco_dict,
-            "右",
-            use_multiscale=use_multiscale,
-            opencv_refine=opencv_refine,
-            board=board,
-            max_valid_images=MAX_VALID_IMAGES,
-        )
-    )
-
-    if success_r:
-        save_intrinsics("results/right_intrinsics.json", K_r, dist_r, err_r, img_size_r)
-    else:
-        print("\n错误: 右相机标定失败！")
-        return
+        assert K is not None and dist is not None and img_size is not None
+        assert err is not None
+        save_intrinsics(f"results/{cam}_intrinsics.json", K, dist, err, img_size)
+        per_cam_summary.append((cam, K, float(err)))
 
     # 显示总结
     print("\n" + "=" * 60)
     print("内参标定完成！")
     print("=" * 60)
-    print(f"\n左相机:")
-    print(f"  - fx = {K_l[0, 0]:.2f}, fy = {K_l[1, 1]:.2f}")
-    print(f"  - cx = {K_l[0, 2]:.2f}, cy = {K_l[1, 2]:.2f}")
-    print(f"  - 平均误差(mean_error) = {err_l:.4f} 像素")
-    print("  - RMS(ret) 见上方标定日志")
+    for cam, K, err in per_cam_summary:
+        print(f"\n{cam}:")
+        print(f"  - fx = {K[0, 0]:.2f}, fy = {K[1, 1]:.2f}")
+        print(f"  - cx = {K[0, 2]:.2f}, cy = {K[1, 2]:.2f}")
+        print(f"  - 平均误差(mean_error) = {err:.4f} 像素")
+        print("  - RMS(ret) 见上方标定日志")
 
-    print(f"\n右相机:")
-    print(f"  - fx = {K_r[0, 0]:.2f}, fy = {K_r[1, 1]:.2f}")
-    print(f"  - cx = {K_r[0, 2]:.2f}, cy = {K_r[1, 2]:.2f}")
-    print(f"  - 平均误差(mean_error) = {err_r:.4f} 像素")
-    print("  - RMS(ret) 见上方标定日志")
-
-    print("\n下一步: 运行 python step4_stereo_extrinsic.py")
+    if len(cameras) == 2 and set(cameras) == {"left", "right"}:
+        print("\n下一步: 运行 python step4_stereo_extrinsic.py")
+    else:
+        print("\n下一步: 运行 python step4_multi_extrinsic_pose_graph.py")
 
 
 if __name__ == "__main__":

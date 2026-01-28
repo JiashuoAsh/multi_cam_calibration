@@ -56,32 +56,45 @@ def _call_if_exists(obj, method_names):
     return False
 
 
-def load_calibration_results():
-    """加载所有必要的标定文件"""
+def load_calibration_results(*, camera: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """加载 Step5 标定结果与对应相机内参。
+
+    Args:
+        camera: 相机名（与 results/<cam>_intrinsics.json、Step5 输出 B_T_C 的 key 一致）。
+
+    Returns:
+        B_T_C, K, dist
+    """
     print("加载标定结果...")
 
-    # 1. 加载相机到底盘的变换
     if not os.path.exists("results/camera_to_base.json"):
-        raise FileNotFoundError("未找到 results/camera_to_base.json，请先运行 step5c")
+        raise FileNotFoundError("未找到 results/camera_to_base.json，请先运行 step5b")
 
-    with open("results/camera_to_base.json", "r") as f:
+    with open("results/camera_to_base.json", "r", encoding="utf-8") as f:
         base_calib = json.load(f)
 
-    B_T_Cl = np.array(base_calib["B_T_Cl"])
-    print("  ✓ 加载 B_T_Cl")
+    if "B_T_C" not in base_calib or not isinstance(base_calib["B_T_C"], dict):
+        raise ValueError("results/camera_to_base.json 缺少 B_T_C 字段（请使用新版 step5b 重新生成）")
 
-    # 2. 加载内参
-    if not os.path.exists("results/left_intrinsics.json"):
-        raise FileNotFoundError("未找到 results/left_intrinsics.json")
+    if camera not in base_calib["B_T_C"]:
+        cams = sorted(list(base_calib["B_T_C"].keys()))
+        raise ValueError(f"Step5 输出里没有相机 {camera}。可用相机：{cams}")
 
-    with open("results/left_intrinsics.json", "r") as f:
+    B_T_C = np.asarray(base_calib["B_T_C"][camera], dtype=np.float64)
+    print(f"  ✓ 加载 B_T_C[{camera}]")
+
+    intr_path = f"results/{camera}_intrinsics.json"
+    if not os.path.exists(intr_path):
+        raise FileNotFoundError(f"未找到 {intr_path}")
+
+    with open(intr_path, "r", encoding="utf-8") as f:
         intrinsics = json.load(f)
 
-    K_l = np.array(intrinsics["camera_matrix"])
-    dist_l = np.array(intrinsics["dist_coeffs"])
-    print("  ✓ 加载左相机内参")
+    K = np.asarray(intrinsics["camera_matrix"], dtype=np.float64)
+    dist = np.asarray(intrinsics["dist_coeffs"], dtype=np.float64)
+    print(f"  ✓ 加载 {camera} 相机内参")
 
-    return B_T_Cl, K_l, dist_l
+    return B_T_C, K, dist
 
 
 def _make_transform(rvec, tvec):
@@ -169,6 +182,11 @@ def main():
     print("=" * 60)
 
     parser = argparse.ArgumentParser(description="验证 Step5：相机到底盘外参（支持无显示/headless 模式）")
+    parser.add_argument(
+        "--camera",
+        default="left",
+        help="要验证的相机名（默认 left；需与 Step5 输出 B_T_C 的 key 一致）",
+    )
     parser.add_argument("--headless", action="store_true", help="禁用窗口显示（无显示设备/SSH 推荐）")
     parser.add_argument("--force_gui", action="store_true", help="强制使用窗口显示（有桌面环境时）")
     parser.add_argument("--max_frames", type=int, default=0, help="处理多少帧后退出（0=直到 Ctrl+C）")
@@ -210,7 +228,7 @@ def main():
         # 1. 加载配置和标定数据
         config = load_config()
         use_multiscale, opencv_refine = get_detection_settings(config)
-        B_T_Cl, K_l, dist_l = load_calibration_results()
+        B_T_Cl, K_l, dist_l = load_calibration_results(camera=str(args.camera))
 
         # 准备 AprilTag 数据
         obj_points_mm, tag_ids = create_apriltag_board(config)

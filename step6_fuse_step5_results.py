@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Step 6: 融合多组 Step5(camera_to_base.json) 的外参结果
+"""Step 6: 融合多组 Step5(camera_to_base.json) 的外参结果（支持多相机）
 
 目的
 - 用户会在不同“板位置/采集批次”重复运行 Step5b，得到多份 `camera_to_base.json`。
-- Step6 将这些结果做鲁棒融合，得到更稳定的 `B_T_Cl`（以及可选的 `B_T_Cr`）。
+- Step6 将这些结果做鲁棒融合，得到更稳定的 `B_T_C`（每个相机一份）。
 
 核心原则
 - 平移可以做加权均值/中位数，但旋转不能直接对矩阵逐元素平均。
@@ -28,7 +28,7 @@
   python step6_fuse_step5_results.py -i "archive/**/camera_to_base.json"
 
 说明
-- 变换命名约定：B_T_Cl 表示 Cl -> B（点从相机坐标系变到底盘坐标系）。
+- 变换命名约定：B_T_C 表示 C -> B（点从相机坐标系变到底盘坐标系）。
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -49,6 +49,21 @@ from scipy.spatial.transform import Rotation
 class Sample:
     path: str
     data: Dict[str, Any]
+
+
+def _make_warn(collector: List[str], *, verbose: bool) -> Callable[[str], None]:
+    """创建一个轻量告警函数。
+
+    - 始终把告警写入 collector（用于写入 report JSON，便于复盘）
+    - verbose=True 时，额外打印到控制台
+    """
+
+    def _warn(msg: str) -> None:
+        collector.append(str(msg))
+        if verbose:
+            print(f"⚠ {msg}")
+
+    return _warn
 
 
 def _read_json(path: str) -> Dict[str, Any]:
@@ -183,39 +198,90 @@ def _extract_transform(data: Dict[str, Any], key: str) -> Optional[np.ndarray]:
     return _ensure_transform(T, key)
 
 
-def _try_extract_transform(data: Dict[str, Any], key: str, *, sample_path: str) -> Optional[np.ndarray]:
-    """安全提取变换：失败则告警并返回 None。"""
+def _try_extract_transform(
+    data: Dict[str, Any],
+    key: str,
+    *,
+    sample_path: str,
+    warn: Optional[Callable[[str], None]] = None,
+) -> Optional[np.ndarray]:
+    """安全提取变换：失败则记录告警并返回 None。
+
+    说明：历史数据里常见旋转子块异常（例如 det<0 的“反射”）。
+    Step6 默认跳过该样本，避免单点异常中断整个融合流程。
+    """
     if key not in data:
         return None
     try:
         return _extract_transform(data, key)
     except Exception as e:
-        print(f"⚠ 跳过样本: {sample_path} 的 {key}（格式/旋转异常）：{e}")
+        hint = ""
         # 常见坑：det=-1 表示反射（左手系/轴镜像/脚本版本不一致）
         try:
             Rm = np.asarray(data[key], dtype=np.float64)[:3, :3]
             det = float(np.linalg.det(Rm))
             if det < 0:
-                print("   提示：该样本旋转 det<0（反射），通常意味着坐标系定义/脚本版本不一致；建议重新用同一版本 Step5b 生成结果。")
+                hint = "（det<0: 反射；通常意味着坐标系定义/脚本版本不一致，建议用同一版本 Step5b 重新生成）"
         except Exception:
-            pass
+            hint = ""
+
+        if warn is not None:
+            warn(f"跳过 {sample_path} 的 {key}：{e} {hint}".strip())
         return None
 
 
-def _weight_from_data(data: Dict[str, Any], which: str, mode: str) -> float:
-    """which: 'left' or 'right'"""
+def _load_samples(input_paths: List[str], *, warn: Callable[[str], None]) -> List[Sample]:
+    """读取输入 JSON，读取失败的样本会被跳过并记录告警。"""
+    samples: List[Sample] = []
+    for p in input_paths:
+        try:
+            samples.append(Sample(path=p, data=_read_json(p)))
+        except Exception as e:
+            warn(f"跳过 {p}：读取失败：{e}")
+    return samples
+
+
+def _weight_from_data(data: Dict[str, Any], cam: str, mode: str) -> float:
+    """从样本 JSON 中提取某相机的权重。"""
     if mode == "equal":
         return 1.0
 
     # mode == 'valid_poses'
     try:
-        if which == "left":
-            return float(max(1, int(data.get("left_pose_stats", {}).get("valid_poses", 1))))
-        if which == "right":
-            return float(max(1, int(data.get("right_pose_stats", {}).get("valid_poses", 1))))
+        pose_stats = data.get("pose_stats", {})
+        if isinstance(pose_stats, dict) and cam in pose_stats:
+            return float(max(1, int(pose_stats.get(cam, {}).get("valid_poses", 1))))
     except Exception:
         return 1.0
     return 1.0
+
+
+def _try_extract_B_T_C(
+    data: Dict[str, Any],
+    *,
+    sample_path: str,
+    warn: Callable[[str], None],
+) -> Dict[str, np.ndarray]:
+    """安全提取 B_T_C 字典。
+
+    返回一个 {cam: 4x4} 字典；若样本里不存在或提取失败则返回空字典。
+    """
+    if "B_T_C" not in data:
+        return {}
+    raw = data.get("B_T_C")
+    if not isinstance(raw, dict):
+        warn(f"跳过 {sample_path} 的 B_T_C：不是 dict")
+        return {}
+
+    out: Dict[str, np.ndarray] = {}
+    for cam, T in raw.items():
+        if not isinstance(cam, str):
+            continue
+        try:
+            out[cam] = _ensure_transform(np.asarray(T, dtype=np.float64), f"B_T_C[{cam}]")
+        except Exception as e:
+            warn(f"跳过 {sample_path} 的 B_T_C[{cam}]：{e}")
+    return out
 
 
 def _choose_medoid_index(
@@ -422,105 +488,101 @@ def main() -> int:
         action="store_true",
         help="将融合结果同时写入 results/camera_to_base.json（覆盖）",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="打印更多过程信息（包含跳过样本原因）",
+    )
 
     args = parser.parse_args()
+
+    warnings: List[str] = []
+    warn = _make_warn(warnings, verbose=bool(args.verbose))
 
     input_paths = _gather_input_paths(args.inputs)
     if len(input_paths) == 0:
         print("未找到任何输入文件，请检查 --inputs")
         return 2
 
-    samples: List[Sample] = []
-    for p in input_paths:
-        try:
-            samples.append(Sample(path=p, data=_read_json(p)))
-        except Exception as e:
-            print(f"⚠ 跳过 {p}：读取失败：{e}")
+    samples = _load_samples(input_paths, warn=warn)
 
     if len(samples) == 0:
         print("没有可用样本（全部读取失败）")
         return 2
 
-    Ts_Cl: List[np.ndarray] = []
-    w_Cl: List[float] = []
-    idx_Cl: List[int] = []
-
-    Ts_Cr: List[np.ndarray] = []
-    w_Cr: List[float] = []
-    idx_Cr: List[int] = []
+    # 收集每个相机的样本
+    Ts_by_cam: Dict[str, List[np.ndarray]] = {}
+    w_by_cam: Dict[str, List[float]] = {}
+    idx_by_cam: Dict[str, List[int]] = {}
 
     for i, s in enumerate(samples):
-        T_cl = _try_extract_transform(s.data, "B_T_Cl", sample_path=s.path)
-        if T_cl is not None:
-            Ts_Cl.append(T_cl)
-            w_Cl.append(_weight_from_data(s.data, "left", args.weight_mode))
-            idx_Cl.append(i)
+        B_T_C_i = _try_extract_B_T_C(s.data, sample_path=s.path, warn=warn)
+        for cam, T in B_T_C_i.items():
+            Ts_by_cam.setdefault(cam, []).append(T)
+            w_by_cam.setdefault(cam, []).append(_weight_from_data(s.data, cam, args.weight_mode))
+            idx_by_cam.setdefault(cam, []).append(i)
 
-        T_cr = _try_extract_transform(s.data, "B_T_Cr", sample_path=s.path)
-        if T_cr is not None:
-            Ts_Cr.append(T_cr)
-            w_Cr.append(_weight_from_data(s.data, "right", args.weight_mode))
-            idx_Cr.append(i)
-
-    if len(Ts_Cl) < 1:
-        print("输入里没有任何 B_T_Cl，无法融合")
+    if len(Ts_by_cam) == 0:
+        print("输入里没有任何 B_T_C，无法融合")
         return 2
 
-    fused_Cl, stats_Cl, per_Cl = _fuse_transforms(
-        Ts_Cl,
-        w_Cl,
-        rot_thresh_deg=args.rot_thresh_deg,
-        trans_thresh_m=args.trans_thresh_m,
-        max_iter=args.max_iter,
-        min_inliers=args.min_inliers,
-    )
+    fused_by_cam: Dict[str, np.ndarray] = {}
+    stats_by_cam: Dict[str, Any] = {}
+    per_by_cam: Dict[str, Any] = {}
 
-    fused_Cr = None
-    stats_Cr = None
-    per_Cr = None
-    if len(Ts_Cr) >= 1:
-        fused_Cr, stats_Cr, per_Cr = _fuse_transforms(
-            Ts_Cr,
-            w_Cr,
+    for cam in sorted(Ts_by_cam.keys()):
+        fused_T, stats, per = _fuse_transforms(
+            Ts_by_cam[cam],
+            w_by_cam.get(cam, [1.0] * len(Ts_by_cam[cam])),
             rot_thresh_deg=args.rot_thresh_deg,
             trans_thresh_m=args.trans_thresh_m,
             max_iter=args.max_iter,
             min_inliers=args.min_inliers,
         )
+        fused_by_cam[cam] = fused_T
+        stats_by_cam[cam] = stats
+        per_by_cam[cam] = per
 
     now = datetime.now().isoformat()
 
     report_inputs: List[Dict[str, Any]] = []
     for s in samples:
+        cams_in_sample = []
+        try:
+            if isinstance(s.data.get("B_T_C"), dict):
+                cams_in_sample = sorted([str(k) for k in s.data.get("B_T_C", {}).keys()])
+        except Exception:
+            cams_in_sample = []
+
         report_inputs.append(
             {
                 "path": s.path,
                 "timestamp": s.data.get("timestamp"),
-                "has_B_T_Cl": "B_T_Cl" in s.data,
-                "has_B_T_Cr": "B_T_Cr" in s.data,
-                "left_valid_poses": s.data.get("left_pose_stats", {}).get("valid_poses"),
-                "right_valid_poses": s.data.get("right_pose_stats", {}).get("valid_poses"),
+                "cameras": cams_in_sample,
+                "pose_stats": s.data.get("pose_stats"),
             }
         )
 
-    for local_j, sample_i in enumerate(idx_Cl):
-        report_inputs[sample_i]["Cl"] = {**per_Cl[local_j], "weight": float(w_Cl[local_j])}
-
-    if per_Cr is not None:
-        for local_j, sample_i in enumerate(idx_Cr):
-            report_inputs[sample_i]["Cr"] = {**per_Cr[local_j], "weight": float(w_Cr[local_j])}
+    # 把每个相机每个样本的误差/权重填回 report_inputs
+    for cam, idx_list in idx_by_cam.items():
+        per_list = per_by_cam.get(cam)
+        if per_list is None:
+            continue
+        w_list = w_by_cam.get(cam, [])
+        for local_j, sample_i in enumerate(idx_list):
+            report_inputs[sample_i].setdefault("per_camera", {})
+            report_inputs[sample_i]["per_camera"][cam] = {
+                **per_list[local_j],
+                "weight": float(w_list[local_j]) if local_j < len(w_list) else 1.0,
+            }
 
     fused_result: Dict[str, Any] = {
         "timestamp": now,
-        "B_T_Cl": fused_Cl.tolist(),
-        "stereo_validation": {
-            "performed": bool(fused_Cr is not None),
-            "passed": None,
-            "note": "Step6 仅做融合，不重新做双目一致性校验；建议用 verify_calibration.py / Step5b 自带校验检查。",
-        },
+        "B_T_C": {cam: T.tolist() for cam, T in fused_by_cam.items()},
         "fusion": {
             "inputs": report_inputs,
-            "stats": {"Cl": stats_Cl, "Cr": stats_Cr},
+            "stats": stats_by_cam,
+            "warnings": warnings,
             "params": {
                 "rot_thresh_deg": float(args.rot_thresh_deg),
                 "trans_thresh_m": float(args.trans_thresh_m),
@@ -531,9 +593,6 @@ def main() -> int:
         },
     }
 
-    if fused_Cr is not None:
-        fused_result["B_T_Cr"] = fused_Cr.tolist()
-
     _save_json(args.out, fused_result)
     _save_json(args.report, {"timestamp": now, **fused_result["fusion"]})
 
@@ -543,11 +602,11 @@ def main() -> int:
     print("=" * 70)
     print("Step6 融合完成")
     print(f"  输入样本: {len(samples)}")
-    print(f"  左相机: inliers={stats_Cl['num_inliers']}/{stats_Cl['num_samples']}")
-    if stats_Cr is not None:
-        print(f"  右相机: inliers={stats_Cr['num_inliers']}/{stats_Cr['num_samples']}")
-    else:
-        print("  右相机: 未融合（输入中缺少 B_T_Cr）")
+    if warnings:
+        print(f"  告警: {len(warnings)} 条（详情见 report JSON；使用 --verbose 可在控制台显示）")
+    for cam in sorted(stats_by_cam.keys()):
+        st = stats_by_cam[cam]
+        print(f"  {cam}: inliers={st['num_inliers']}/{st['num_samples']}")
     print(f"  输出: {args.out}")
     print(f"  报告: {args.report}")
     if args.overwrite_results:

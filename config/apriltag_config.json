@@ -1,13 +1,84 @@
 {
-  "_comment": "=== USB 独立双目相机配置模板 ===",
+  "_comment": "=== 离线 mp4 双目视频配置模板（video-only）===",
   "camera_settings": {
-    "camera_type": "custom_usb_stereo",
-    "device_path": "/dev/video40",
-    "raw_width": 2560,
-    "raw_height": 720,
-    "image_width": 720,
-    "image_height": 1280,
-    "note": "图像是竖向的: 720(宽) x 1280(高)"
+    "camera_type": "video_stereo",
+
+    "video_mode": "two_files",
+    "_comment_video_mode": "two_files=左右各一段视频；single_sbs=单视频左右拼接",
+
+    "video_left_path": "videos/202.mp4",
+    "video_right_path": "videos/203.mp4",
+
+    "video_path": "videos/stereo_sbs.mp4",
+    "sbs_layout": "rl",
+
+    "rotate_left": "none",
+    "rotate_right": "none",
+
+    "force_resize_width": null,
+    "force_resize_height": null,
+
+    "note": "two_files 模式使用 video_left_path/video_right_path；single_sbs 模式使用 video_path + sbs_layout。force_resize_* 仅在左右分辨率不一致或需要统一尺寸时使用。Windows 路径建议用 C:/xxx/yyy.mp4 或相对路径。"
+  },
+
+  "video_extract": {
+    "_comment": "Step1 抽帧参数（step1_extract_imgs_from_video.py 会读取这里）。",
+
+    "every_n": 10,
+    "_comment_every_n": "每 N 帧保存 1 帧（越大越稀疏，默认 10）",
+
+    "max_pairs": 0,
+    "_comment_max_pairs": "最多保存多少对图像（0=不限；默认 300）",
+
+    "start_frame": 0,
+    "_comment_start_frame": "从第几帧开始（0-based；与 start_sec 二选一；若 start_sec>0 则优先按时间 seek）",
+
+    "start_sec": 0.0,
+    "_comment_start_sec": "从第几秒开始（默认 0；优先级高于 start_frame）",
+
+    "out_dir": "images/raw",
+    "_comment_out_dir": "输出目录（会生成 out_dir/left 与 out_dir/right）",
+
+    "prefix": "frame_",
+    "_comment_prefix": "输出文件名前缀（会拼接 6 位 frame index，例如 frame_000120.png）",
+
+    "overwrite": false,
+    "_comment_overwrite": "是否清空 out_dir/left 与 out_dir/right 后再写入（谨慎使用）"
+  },
+
+  "image_dataset": {
+    "_comment": "（可选）多相机图片数据集输入：启用后 Step2/Step3/Step4 将按此配置自动处理多相机。",
+    "_comment_enabled": "false=保持旧默认（双目 left/right 且固定 images/raw 与 images/filtered）；true=按 cameras 指定的路径处理。",
+    "enabled": false,
+
+    "raw_root": "images/raw",
+    "filtered_root": "images/filtered",
+
+    "sync": {
+      "_comment": "sync.key=stem 表示按文件名 stem 对齐（frame_000120.*）；mode=intersection 更严格、适合同步采集。",
+      "key": "stem",
+      "mode": "intersection"
+    },
+
+    "cameras": {
+      "_comment": "每个相机可用 raw_dir 或 raw_glob 指定原始图片来源。raw_dir 会自动扫描 png/jpg/jpeg/bmp。",
+      "left": {"raw_dir": "images/raw/left"},
+      "right": {"raw_dir": "images/raw/right"}
+    }
+  },
+
+  "step5_dataset": {
+    "_comment": "（可选）Step5 相机->底盘外参标定的数据集输入：启用后 step5b_camera_to_base.py 将按此配置自动处理多相机。",
+    "_comment_enabled": "false=保持默认 images/step5/<cam>/ 扫描；true=按 cameras 指定的路径读取。",
+    "enabled": false,
+
+    "image_root": "images/step5",
+
+    "cameras": {
+      "_comment": "每个相机可用 raw_dir 或 raw_glob 指定 Step5 图片来源；若留空则默认使用 image_root/<cam>。",
+      "left": {"raw_dir": "images/step5/left"},
+      "right": {"raw_dir": "images/step5/right"}
+    }
   },
   "apriltag_board": {
     "_comment": "AprilTag标定板配置 - 必须精确测量！",
@@ -51,7 +122,19 @@
       "_comment_use_multiscale": "是否启用多尺度/多预处理检测以提升召回率（更慢但更稳）",
 
       "opencv_refine": true,
-      "_comment_opencv_refine": "是否启用 OpenCV 官方 refineDetectedMarkers（需提供 board；提供K/dist更可靠）"
+      "_comment_opencv_refine": "是否启用 OpenCV 官方 refineDetectedMarkers（需提供 board；提供K/dist更可靠）",
+
+      "profile": "small_tags",
+      "_comment_profile": "检测参数预设：balanced=默认；small_tags=针对远距离/小Tag提高召回（更慢，可能略增误检）",
+
+      "roi": null,
+      "_comment_roi": "可选ROI加速/提升小Tag召回：统一ROI用 [x,y,w,h]；或按相机 {left:[...], right:[...]}。建议先用结果可视化看板子大概位置再填。",
+
+      "auto_roi": {"enabled": true, "pre_scale": 0.5, "min_tags": 1, "margin": 0.25},
+      "_comment_auto_roi": "板子位置不固定/一直晃动时可启用：先在缩小图上粗检定位板子区域，再对该ROI做多尺度/上采样精检。也支持对象形式：{\"enabled\":true,\"pre_scale\":0.5,\"min_tags\":1,\"margin\":0.25}。注意：若你同时设置了 roi，则 auto_roi 只会在 roi=null 时生效。",
+
+      "detector_params": {},
+      "_comment_detector_params": "可选：直接覆写 OpenCV DetectorParameters 字段（仅在你确定含义时使用）。例如 {\"adaptiveThreshWinSizeStep\":2, \"minMarkerPerimeterRate\":0.02}"
     }
   },
 
@@ -71,16 +154,16 @@
       "标定板最下方离墙距离: 15.0cm",
       "标定板长度: 50.0cm",
       "标定板倾斜角度: 向前倾斜 17.46°",
-      "机器人底盘中心到墙面距离: 2.162m (1.862m + 0.3m)",
+      "机器人底盘中心到墙面距离: 2.182m (1.882m + 0.3m)",
       "标定板中心相对底盘中心左右偏移: -8.2cm"
     ],
 
-    "translation": [-0.082, -0.5545, 2.087],
+    "translation": [-0.068, -0.5545, 2.107],
     "_comment_translation": "标定板中心在底盘坐标系中的位置 [X, Y, Z] (单位:米)",
     "_comment_translation_calc": [
       "X = -0.082 (标定板中心相对底盘中心偏左8.2cm, X轴向右为正)",
       "Y = -(0.316 + 0.2385) = -0.5545 (底座高31.6cm + 底座到板中心高23.85cm(50cm / 2 * cos(17.46°)), Y轴向上为正)",
-      "Z = 2.162 - 0.075 = 2.087 (墙面距离减去前倾造成的中心前移7.5cm(50cm / 2 * sin(17.46°)), Z轴向前为正)"
+      "Z = 2.182 - 0.075 = 2.107 (墙面距离减去前倾造成的中心前移7.5cm(50cm / 2 * sin(17.46°)), Z轴向前为正)"
     ],
 
     "translation_reference": "board_center",

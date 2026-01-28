@@ -90,13 +90,122 @@ class AdvancedAprilTagDetector:
             # 候选四边形过滤：允许更小的 tag（提升远距离/小尺寸召回）。
             # 最小检测周长是 1280 * minMarkerPerimeterRate 像素（1280是假设的图像宽度）。
             # 例如 minMarkerPerimeterRate=0.03 (默认值) 时，最小周长约为 38.4 像素。
-            self.parameters.minMarkerPerimeterRate = 0.05
+            # 0.05 对小Tag会偏严格；这里稍微放宽，避免“一个都检不出”。
+            self.parameters.minMarkerPerimeterRate = 0.01
             self.parameters.maxMarkerPerimeterRate = 4.0
 
         # Step 3: 创建检测器实例（结合字典和参数）
         self.detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.parameters)
 
         self.detected_tags = {}
+
+    def _resize_gray(self, gray: np.ndarray, scale: float) -> np.ndarray:
+        """缩放灰度图。
+
+        - 上采样：用更锐的插值（Cubic/Lanczos），有利于小Tag边缘
+        - 下采样：用 AREA，避免 aliasing
+        """
+        if scale <= 0:
+            raise ValueError("scale must be > 0")
+        if abs(scale - 1.0) < 1e-6:
+            return gray
+
+        h, w = gray.shape[:2]
+        new_w = max(1, int(round(w * float(scale))))
+        new_h = max(1, int(round(h * float(scale))))
+
+        if scale > 1.0:
+            interp = cv2.INTER_CUBIC
+            # 对大倍率上采样，用 Lanczos 细节通常更好（但更慢）
+            if scale >= 2.5:
+                interp = cv2.INTER_LANCZOS4
+        else:
+            interp = cv2.INTER_AREA
+
+        return cv2.resize(gray, (new_w, new_h), interpolation=interp)
+
+    def _detect_scaled(self, gray: np.ndarray, scale: float, *, score_scale: float = 1.0):
+        """在缩放图上检测，并把角点映射回原图坐标系。"""
+        scaled = self._resize_gray(gray, scale)
+        corners, ids, _ = self._detect_on_image(scaled)
+        if ids is None or corners is None or len(ids) == 0:
+            return None, None
+
+        # 映射回原图：除以 scale
+        out_corners = []
+        out_ids = []
+        for idx, tag_id in enumerate(ids.flatten()):
+            out_ids.append(int(tag_id))
+            out_corners.append(corners[idx][0] / float(scale))
+        return out_corners, np.asarray(out_ids, dtype=np.int32).reshape(-1, 1)
+
+    def _detect_tiled_upscale(
+        self,
+        gray: np.ndarray,
+        *,
+        upscale: float,
+        tile_rows: int = 2,
+        tile_cols: int = 2,
+        overlap: float = 0.25,
+    ):
+        """把大图切块后上采样检测。
+
+        目的：
+          - 小Tag需要更大像素：上采样有帮助
+          - 直接对整图 3x 会非常慢且占内存
+          - 切块 + 适度重叠可提升召回并降低开销
+
+        返回的角点已映射回原图坐标。
+        """
+        h, w = gray.shape[:2]
+        tr = max(1, int(tile_rows))
+        tc = max(1, int(tile_cols))
+        ov = float(np.clip(overlap, 0.0, 0.8))
+
+        tile_w = int(np.ceil(w / tc))
+        tile_h = int(np.ceil(h / tr))
+        step_w = max(1, int(round(tile_w * (1.0 - ov))))
+        step_h = max(1, int(round(tile_h * (1.0 - ov))))
+
+        all_corners = []
+        all_ids = []
+
+        y0 = 0
+        while y0 < h:
+            x0 = 0
+            y1 = min(h, y0 + tile_h)
+            # 确保最后一块覆盖到底
+            if (h - y0) < tile_h and y0 > 0:
+                y0 = max(0, h - tile_h)
+                y1 = h
+
+            while x0 < w:
+                x1 = min(w, x0 + tile_w)
+                if (w - x0) < tile_w and x0 > 0:
+                    x0 = max(0, w - tile_w)
+                    x1 = w
+
+                tile = gray[y0:y1, x0:x1]
+                scaled = self._resize_gray(tile, upscale)
+                corners, ids, _ = self._detect_on_image(scaled)
+                if ids is not None and corners is not None and len(ids) > 0:
+                    for idx, tag_id in enumerate(ids.flatten()):
+                        c = corners[idx][0] / float(upscale)
+                        c = c + np.array([float(x0), float(y0)], dtype=np.float32)
+                        all_corners.append(c)
+                        all_ids.append(int(tag_id))
+
+                if x1 >= w:
+                    break
+                x0 += step_w
+
+            if y1 >= h:
+                break
+            y0 += step_h
+
+        if len(all_ids) == 0:
+            return None, None
+        return all_corners, np.asarray(all_ids, dtype=np.int32).reshape(-1, 1)
 
     def _score_corners(self, corners_4x2: np.ndarray) -> float:
         """对同一 tag 的多次检测结果做简单打分，用于择优合并。
@@ -321,8 +430,8 @@ class AdvancedAprilTagDetector:
         # 收集所有检测到的标签: tag_id -> (corners_4x2, score)
         all_detections: Dict[int, Tuple[np.ndarray, float]] = {}
 
-        def _try_update(tag_id: int, corners_4x2: np.ndarray):
-            score = self._score_corners(corners_4x2)
+        def _try_update(tag_id: int, corners_4x2: np.ndarray, *, score_scale: float = 1.0):
+            score = self._score_corners(corners_4x2) * float(score_scale)
             prev = all_detections.get(tag_id)
             if prev is None or score > prev[1]:
                 all_detections[tag_id] = (corners_4x2, score)
@@ -383,17 +492,40 @@ class AdvancedAprilTagDetector:
 
         # 4. 上采样
         h, w = gray.shape[:2]
-        for scale in [1.25, 1.50, 1.75]:
-            upscaled = cv2.resize(gray, (int(w * scale), int(h * scale)))
-            corners, ids, _ = self._detect_on_image(upscaled)
-            if ids is not None:
-                for idx, tag_id in enumerate(ids.flatten()):
-                    tag_id = int(tag_id)
-                    _try_update(tag_id, corners[idx][0] / scale)
+        # 小Tag：上采样更关键；同时对高倍率结果略加权（更倾向选择“高分辨率下定位”的角点）。
+        for scale in [1.50, 2.0, 2.5, 3.0]:
+            # 大图直接整图 3x 成本很高：用切块策略。
+            if scale >= 2.0 and (h * w) >= 1_000_000:
+                t_corners, t_ids = self._detect_tiled_upscale(gray, upscale=scale, tile_rows=2, tile_cols=2, overlap=0.25)
+                if t_ids is not None and t_corners is not None:
+                    for idx, tag_id in enumerate(t_ids.flatten()):
+                        _try_update(int(tag_id), np.asarray(t_corners[idx], dtype=np.float32), score_scale=scale)
+            else:
+                upscaled = self._resize_gray(gray, scale)
+                corners, ids, _ = self._detect_on_image(upscaled)
+                if ids is not None:
+                    for idx, tag_id in enumerate(ids.flatten()):
+                        tag_id = int(tag_id)
+                        _try_update(tag_id, corners[idx][0] / float(scale), score_scale=scale)
+
+            # 对增强图做同样的高倍率尝试（通常对低对比/灯光不均更有效）
+            if scale >= 2.0:
+                if scale >= 2.0 and (h * w) >= 1_000_000:
+                    t_corners, t_ids = self._detect_tiled_upscale(enhanced, upscale=scale, tile_rows=2, tile_cols=2, overlap=0.25)
+                    if t_ids is not None and t_corners is not None:
+                        for idx, tag_id in enumerate(t_ids.flatten()):
+                            _try_update(int(tag_id), np.asarray(t_corners[idx], dtype=np.float32), score_scale=scale)
+                else:
+                    upscaled_e = self._resize_gray(enhanced, scale)
+                    corners, ids, _ = self._detect_on_image(upscaled_e)
+                    if ids is not None:
+                        for idx, tag_id in enumerate(ids.flatten()):
+                            tag_id = int(tag_id)
+                            _try_update(tag_id, corners[idx][0] / float(scale), score_scale=scale)
 
         # 5. 下采样
         for scale in [0.25, 0.5, 0.75]:
-            downscaled = cv2.resize(gray, (int(w * scale), int(h * scale)))
+            downscaled = self._resize_gray(gray, scale)
             corners, ids, _ = self._detect_on_image(downscaled)
             if ids is not None:
                 for idx, tag_id in enumerate(ids.flatten()):

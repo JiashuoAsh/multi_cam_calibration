@@ -1,64 +1,43 @@
+woan@LAPTOP-C3FMTM1O MINGW64 ~/Desktop/work/codes/相机标定/video_cali_apriltag (master)
+$ python step3_intrinsic_apriltag.py
 ============================================================
 Step 3: AprilTag 内参标定
 ============================================================
 
 清理旧的可视化文件...
-  已清空: results/visualization/step3_intrinsic_左
-  已清空: results/visualization/step3_intrinsic_右
+
+清理旧的可视化文件...
 
 找到图像 (来源: images/filtered/):
-  - 左相机: 447 张
-  - 右相机: 447 张
+  - 左相机: 439 张
+  - 右相机: 439 张
+  - detection profile: small_tags
+  - auto_roi: enabled (pre_scale=0.5, min_tags=1, margin=0.25)
 
 左相机标定:
-  - 图像数量: 447
+  - 图像数量: 439
   - 最大有效图像: 1500
-  - 可视化目录: results/visualization/step3_intrinsic_左
-  跳过 20251217_035718_352.png: 检测到的标签不足 (4)
-  跳过 20251217_035718_575.png: 检测到的标签不足 (4)
-  跳过 20251217_035718_797.png: 检测到的标签不足 (4)
-  跳过 20251217_035719_018.png: 检测到的标签不足 (4)
-  跳过 20251217_035719_460.png: 检测到的标签不足 (4)
-  跳过 20251217_035719_903.png: 检测到的标签不足 (4)
-  跳过 20251217_035720_124.png: 检测到的标签不足 (4)
-  跳过 20251217_035720_568.png: 检测到的标签不足 (4)
-  跳过 20251217_035721_008.png: 检测到的标签不足 (4)
-  跳过 20251217_035721_228.png: 检测到的标签不足 (4)
-  跳过 20251217_035721_670.png: 检测到的标签不足 (4)
-  跳过 20251217_035732_337.png: 检测到的标签不足 (4)
-  跳过 20251217_035732_819.png: 检测到的标签不足 (4)
-  跳过 20251217_035733_043.png: 检测到的标签不足 (4)
-  跳过 20251217_035733_487.png: 检测到的标签不足 (4)
-  跳过 20251217_035733_709.png: 检测到的标签不足 (4)
-  跳过 20251217_035734_380.png: 检测到的标签不足 (4)
-  - 有效图像: 430/447
+  - 有效图像: 261/439
+  - 跳过统计: 标签不足 178
   - 正在标定...
-  - RMS(ret, OpenCV): 0.3557 像素
-  - 平均误差(mean_error, per-image mean): 0.1178 像素
+  - RMS(ret, OpenCV): 0.3397 像素
+  - 平均误差(mean_error, per-image mean): 0.2381 像素
   - 标定质量: 优秀
-  - 已保存 430 张检测图像到 results/visualization/step3_intrinsic_左/detection
-  - 已保存 430 张重投影图像到 results/visualization/step3_intrinsic_左/reprojection
   - 正在生成去畸变图像...
-  - 已保存 430 张去畸变图像到 results/visualization/step3_intrinsic_左/undistorted
   - 已保存: results/left_intrinsics.json
 
 右相机标定:
-  - 图像数量: 447
+  - 图像数量: 439
   - 最大有效图像: 1500
-  - 可视化目录: results/visualization/step3_intrinsic_右
-  跳过 20251217_035700_246.png: 检测到的标签不足 (4)
-  跳过 20251217_035700_468.png: 检测到的标签不足 (4)
-  跳过 20251217_035702_015.png: 检测到的标签不足 (4)
-  跳过 20251217_035745_390.png: 检测到的标签不足 (4)
-  - 有效图像: 443/447
+  - 有效图像: 228/439
+  - 跳过统计: 标签不足 211
+  - 有效图像: 228/439
+  - 跳过统计: 标签不足 211
   - 正在标定...
-  - RMS(ret, OpenCV): 0.3238 像素
-  - 平均误差(mean_error, per-image mean): 0.1136 像素
+  - RMS(ret, OpenCV): 0.5347 像素
+  - 平均误差(mean_error, per-image mean): 0.2533 像素
   - 标定质量: 优秀
-  - 已保存 443 张检测图像到 results/visualization/step3_intrinsic_右/detection
-  - 已保存 443 张重投影图像到 results/visualization/step3_intrinsic_右/reprojection
   - 正在生成去畸变图像...
-  - 已保存 443 张去畸变图像到 results/visualization/step3_intrinsic_右/undistorted
   - 已保存: results/right_intrinsics.json
 
 ============================================================
@@ -66,15 +45,15 @@ Step 3: AprilTag 内参标定
 ============================================================
 
 左相机:
-  - fx = 1147.32, fy = 1147.33
-  - cx = 508.23, cy = 602.13
-  - 平均误差(mean_error) = 0.1178 像素
+  - fx = 1202.92, fy = 1203.35
+  - cx = 554.96, cy = 690.06
+  - 平均误差(mean_error) = 0.2381 像素
   - RMS(ret) 见上方标定日志
 
 右相机:
-  - fx = 1138.00, fy = 1138.15
-  - cx = 282.90, cy = 596.83
-  - 平均误差(mean_error) = 0.1136 像素
+  - fx = 1204.63, fy = 1204.30
+  - cx = 569.60, cy = 626.07
+  - 平均误差(mean_error) = 0.2533 像素
   - RMS(ret) 见上方标定日志
 
 下一步: 运行 python step4_stereo_extrinsic.py

@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""
-Step 5b: 相机到底盘坐标系标定 - AprilTag 标定板（精简版）
+"""Step 5b: 相机到底盘坐标系标定（支持多相机）
 
-计算相机坐标系到机器人底盘坐标系的变换矩阵。
+核心思路
+1) 已知标定板在底盘坐标系中的固定安装位姿（config: board_to_base_transform），构造 B_T_T（T->B）。
+2) 对每个相机，用 Step5 图像估计 C_T_T（T->C，PnP 结果），再得到：
 
-坐标系定义:
-    底盘坐标系: X右 Y上 Z前
-    相机坐标系: OpenCV标准 (X右 Y下 Z前)
+     B_T_C = B_T_T @ inv(C_T_T)
 
-输入:
-    - images/step5/left/*.png (step5a 采集的图像)
-    - results/left_intrinsics.json
-    - results/stereo_extrinsics.json
-    - config/apriltag_config.json (board_to_base_transform)
+3) 若某些相机缺少 Step5 图像，但已做过 Step4（相机间外参），可用 Step4 输出把 B_T_C 从已知相机传播到其它相机。
 
-输出:
-    - results/camera_to_base.json (B_T_Cl, B_T_Cr)
+输入
+- Step5 图像：默认 images/step5/<cam>/*.png|jpg|jpeg|bmp
+- 每个相机内参：results/<cam>_intrinsics.json（由 Step3 生成）
+- Step4 相机间外参（可选）：
+    - results/multi_camera_extrinsics.json（多相机 pose graph 输出）
+    - 或 results/stereo_extrinsics.json（双目输出，作为特例）
+
+输出
+- results/camera_to_base.json：
+    - B_T_C: {cam: 4x4}，表示 Cam -> Base
 """
 
 import argparse
@@ -24,12 +27,16 @@ import os
 import glob
 import traceback
 from datetime import datetime
+from pathlib import Path
 import cv2
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from scipy.spatial.transform import Rotation
 from utils import (
     load_config,
+    get_step5_dataset,
+    get_step5_cameras,
+    get_step5_camera_images,
     get_aruco_dict,
     detect_apriltag_corners,
     create_apriltag_board,
@@ -37,6 +44,19 @@ from utils import (
     get_detection_settings,
     estimate_pose_apriltag,
 )
+
+
+# region 日志与格式化（verbose 控制）
+
+
+# 默认尽量安静：只输出关键结果；需要更多过程信息用 --verbose。
+VERBOSE: bool = False
+
+
+def _vprint(*args, **kwargs) -> None:
+    """仅在 VERBOSE=True 时打印。"""
+    if VERBOSE:
+        print(*args, **kwargs)
 
 
 def _fmt4(x) -> str:
@@ -53,7 +73,13 @@ def _pretty_mat(name: str, T: np.ndarray, indent: str = "  ") -> None:
         formatter={"float_kind": lambda v: f"{float(v): .4f}"},
         suppress_small=False,
     )
-    print(f"{indent}{name} =\n{indent}{s.replace(chr(10), chr(10) + indent)}")
+    _vprint(f"{indent}{name} =\n{indent}{s.replace(chr(10), chr(10) + indent)}")
+
+
+# endregion
+
+
+# region SE(3) 变换工具
 
 
 def _ensure_transform(T: np.ndarray, name: str) -> None:
@@ -80,39 +106,39 @@ def _make_transform(R: np.ndarray, t: np.ndarray, name: str) -> np.ndarray:
     return T
 
 
-def _invert_transform_bak(
-    T: np.ndarray, name: str, *, strict: bool = True
-) -> np.ndarray:
-    """求逆并自检：T * inv(T) 是否接近 I。"""
+def _invert_transform(T: np.ndarray, name: str, *, strict: bool = True) -> np.ndarray:
+    """对 4x4 齐次变换求逆（解析法）。
+
+    说明：
+        对“刚体变换”而言，逆变换可以解析地写成：
+        R^{-1} = R^T，t^{-1} = -R^T t。
+
+        为避免数值误差/实现问题，本函数在 verbose 下会对比一次 `np.linalg.inv` 的结果，
+        并在 strict 模式下做一次 Frobenius 范数自检。
+    """
     T = np.asarray(T, dtype=np.float64)
     _ensure_transform(T, name + ".input")
-    T_inv = np.linalg.inv(T)
-    _ensure_transform(T_inv, name)
-    I1 = T @ T_inv
-    I2 = T_inv @ T
-    err1 = float(np.linalg.norm(I1 - np.eye(4), ord="fro"))
-    err2 = float(np.linalg.norm(I2 - np.eye(4), ord="fro"))
-    print(
-        f"  [自检] {name}: inv_err_fro(T*Tinv)={err1:.3e}, inv_err_fro(Tinv*T)={err2:.3e}"
-    )
-    if strict and (err1 > 1e-6 or err2 > 1e-6):
-        raise ValueError(f"{name}: 求逆自检失败，误差过大 ({err1}, {err2})")
-    return T_inv
 
-
-def _invert_transform(T: np.ndarray, name: str, *, strict: bool = True):
     R = T[:3, :3]
     t = T[:3, 3]
-    R_inv_analytic = R.T
-    t_inv_analytic = -R_inv_analytic @ t
+    R_inv = R.T
+    t_inv = -R_inv @ t
+    T_inv = _make_transform(R_inv, t_inv, name)
 
-    T_inv = np.linalg.inv(T)
-    R_inv_num = T_inv[:3, :3]
-    t_inv_num = T_inv[:3, 3]
+    # 对比数值求逆，主要用于排查“不是刚体变换/矩阵坏了”等异常。
+    if VERBOSE:
+        T_inv_num = np.linalg.inv(T)
+        diff_r = float(np.linalg.norm(T_inv_num[:3, :3] - R_inv))
+        diff_t = float(np.linalg.norm(T_inv_num[:3, 3] - t_inv))
+        _vprint(f"  [对比] {name}: diff_R={diff_r:.3e}, diff_t={diff_t:.3e}")
 
-    print("  diff_R = ", np.linalg.norm(R_inv_num - R_inv_analytic))
-    print("  diff_t = ", np.linalg.norm(t_inv_num - t_inv_analytic))
-    return _make_transform(R_inv_analytic, t_inv_analytic, name)
+    if strict:
+        err = float(np.linalg.norm(T @ T_inv - np.eye(4), ord="fro"))
+        _vprint(f"  [自检] {name}: inv_err_fro={err:.3e}")
+        if err > 1e-6:
+            raise ValueError(f"{name}: 求逆自检失败，误差过大 ({err})")
+
+    return T_inv
 
 
 def _euler_to_rotation_matrix(roll, pitch, yaw, degrees=True):
@@ -127,6 +153,9 @@ def _tf_point(T_4x4: np.ndarray, p_3: np.ndarray) -> np.ndarray:
     p_h = np.vstack([p_3, [[1.0]]])
     result = T_4x4 @ p_h
     return result[:3, 0]
+
+
+# endregion
 
 
 def _get_prominent_tag_ids(
@@ -187,11 +216,18 @@ def process_images_and_estimate_pose(
     return valid_poses
 
 
-def load_intrinsics(json_path):
+def load_intrinsics(json_path: str) -> Tuple[np.ndarray, np.ndarray]:
     """加载相机内参。"""
-    with open(json_path, "r") as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return np.array(data["camera_matrix"]), np.array(data["dist_coeffs"])
+    return np.array(data["camera_matrix"], dtype=np.float64), np.array(
+        data["dist_coeffs"], dtype=np.float64
+    )
+
+
+def _intrinsics_path_for_camera(cam: str) -> str:
+    """获取某相机的内参路径（统一为 results/<cam>_intrinsics.json）。"""
+    return str(Path("results") / f"{cam}_intrinsics.json")
 
 
 def load_stereo_extrinsics(json_path):
@@ -210,52 +246,30 @@ def load_stereo_extrinsics(json_path):
     return Cr_T_Cl
 
 
-def load_calibration_data():
-    """加载所有标定数据和配置。"""
-    print("\n加载标定数据...")
+def load_calibration_data(*, config_path: str) -> Dict[str, Any]:
+    """加载标定数据（与相机数量无关）。"""
+    _vprint("\n加载标定数据...")
 
-    # 检查必要文件
-    required_files = [
-        "results/left_intrinsics.json",
-        "results/right_intrinsics.json",
-        "results/stereo_extrinsics.json",
-    ]
-
-    for file in required_files:
-        if not os.path.exists(file):
-            raise FileNotFoundError(f"未找到 {file}")
-
-    # 加载配置
-    config = load_config()
+    config = load_config(config_path)
     use_multiscale, opencv_refine = get_detection_settings(config)
     board_cfg = config["apriltag_board"]
     transform_cfg = config["board_to_base_transform"]
 
-    print(f"\n标定板到底盘的变换:")
+    # 这两行对使用者很关键：保留为非 verbose 输出
+    print("\n标定板到底盘的变换:")
     print(f"  - 平移 (m): {transform_cfg['translation']}")
     print(f"  - 旋转 (度): {transform_cfg['rotation_euler_deg']}")
 
-    # 加载相机内参和双目外参
-    K_l, dist_l = load_intrinsics("results/left_intrinsics.json")
-    K_r, dist_r = load_intrinsics("results/right_intrinsics.json")
-    Cr_T_Cl = load_stereo_extrinsics("results/stereo_extrinsics.json")
-
-    # 创建AprilTag标定板
+    # 创建 AprilTag 标定板
     obj_points_mm, tag_ids = create_apriltag_board(config)
     obj_points = obj_points_mm.astype(np.float64) / 1000.0
     aruco_dict = get_aruco_dict(board_cfg["family"])
-
     board = create_opencv_aruco_board(obj_points_mm, tag_ids, aruco_dict)
 
     return {
         "config": config,
         "board_cfg": board_cfg,
         "transform_cfg": transform_cfg,
-        "K_l": K_l,
-        "dist_l": dist_l,
-        "K_r": K_r,
-        "dist_r": dist_r,
-        "Cr_T_Cl": Cr_T_Cl,
         "obj_points": obj_points,
         "tag_ids": tag_ids,
         "aruco_dict": aruco_dict,
@@ -265,9 +279,65 @@ def load_calibration_data():
     }
 
 
+def _discover_cameras(image_root: Path) -> List[str]:
+    """从 image_root 下的子目录自动发现相机名。"""
+    cams: List[str] = []
+    if not image_root.exists():
+        return cams
+
+    for p in sorted(image_root.iterdir()):
+        if not p.is_dir():
+            continue
+        # 仅当目录里存在图片文件才认为是相机
+        imgs = _glob_images(p)
+        if len(imgs) > 0:
+            cams.append(p.name)
+    return cams
+
+
+def _glob_images(cam_dir: Path) -> List[str]:
+    patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp"]
+    files: List[str] = []
+    for pat in patterns:
+        files.extend(glob.glob(str(cam_dir / pat)))
+    return sorted(files)
+
+
+def _load_extrinsics_graph() -> Tuple[Optional[str], Dict[str, np.ndarray], Optional[str]]:
+    """加载 Step4 的相机间外参，用于把 B_T_C 从已知相机传播到其它相机。
+
+    Returns:
+        reference: Step4 外参的参考相机名（Cam_ref）
+        T_cam_from_ref: {cam: C_cam_T_Cref}，即 Cam <- Ref
+        source: 使用的文件路径（用于记录/打印）
+    """
+    multi_path = Path("results/multi_camera_extrinsics.json")
+    if multi_path.exists():
+        with open(multi_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        reference = str(data["reference"])
+        out: Dict[str, np.ndarray] = {}
+        for cam, entry in data.get("T_cam_from_ref", {}).items():
+            out[str(cam)] = np.asarray(entry["T"], dtype=np.float64)
+        return reference, out, str(multi_path)
+
+    stereo_path = Path("results/stereo_extrinsics.json")
+    if stereo_path.exists():
+        # 约定：stereo_extrinsics.json 给出 Cr_T_Cl（右 <- 左）
+        Cr_T_Cl = load_stereo_extrinsics(str(stereo_path))
+        reference = "left"
+        out = {
+            "left": np.eye(4, dtype=np.float64),
+            "right": Cr_T_Cl,
+        }
+        return reference, out, str(stereo_path)
+
+    return None, {}, None
+
+
 def compute_C_T_T_mean_pose(valid_rvecs, valid_tvecs, *, cam_name: str) -> np.ndarray:
     """由多帧PnP结果计算平均位姿，输出 {cam_name}_T_T (T -> cam)。"""
-    print(f"  计算 {cam_name}_T_T 平均位姿（{len(valid_rvecs)} 帧）")
+    _vprint(f"  计算 {cam_name}_T_T 平均位姿（{len(valid_rvecs)} 帧）")
 
     if len(valid_rvecs) == 0:
         raise ValueError(f"{cam_name}: 没有有效位姿")
@@ -280,13 +350,13 @@ def compute_C_T_T_mean_pose(valid_rvecs, valid_tvecs, *, cam_name: str) -> np.nd
         r_std = np.std(valid_rvecs, axis=0)
         r_std_norm = np.linalg.norm(r_std)
 
-        print(f"  [稳定性检查] 平移标准差: {t_std_norm*1000:.2f} mm (越小越好)")
-        print(f"  [稳定性检查] 旋转标准差: {r_std_norm:.4f} rad")
+        _vprint(f"  [稳定性检查] 平移标准差: {t_std_norm*1000:.2f} mm (越小越好)")
+        _vprint(f"  [稳定性检查] 旋转标准差: {r_std_norm:.4f} rad")
 
         if t_std_norm > 0.005: # 阈值 5mm
-            print(f"  ⚠️ 警告: 位姿抖动较大 (>5mm)，建议增加光照或检查标定板是否晃动")
+            _vprint("  ⚠️ 警告: 位姿抖动较大 (>5mm)，建议增加光照或检查标定板是否晃动")
         else:
-            print(f"  ✓ 位姿稳定，单位置标定可靠")
+            _vprint("  ✓ 位姿稳定，单位置标定可靠")
 
     # 对旋转向量取平均（转为旋转矩阵后平均）
     R_matrices = [cv2.Rodrigues(rvec)[0] for rvec in valid_rvecs]
@@ -311,7 +381,7 @@ def build_B_T_T_from_config(
     transform_cfg: Dict[str, Any], board_cfg: Dict[str, Any]
 ) -> np.ndarray:
     """由配置构造 B_T_T (T -> B)。"""
-    print("\n[求解] 构造标定板到底盘的变换 (B_T_T: T -> B)")
+    _vprint("\n[求解] 构造标定板到底盘的变换 (B_T_T: T -> B)")
 
     rotation_euler = transform_cfg["rotation_euler_deg"]
     R_B_T = _euler_to_rotation_matrix(*rotation_euler, degrees=True)
@@ -339,13 +409,11 @@ def build_B_T_T_from_config(
 
     if translation_ref == "tag0_center":
         translation_B = translation_input_B
-        print("  - 直接使用translation作为Tag0位置 (translation_reference=tag0_center)")
+        _vprint("  - 直接使用translation作为Tag0位置 (translation_reference=tag0_center)")
     else:
         if ref_point_cfg is None:
             ref_point_T = default_grid_center_T
-            print(
-                "  未配置 translation_reference_point_in_T_m，回退使用默认网格中心(ref=grid_center)"
-            )
+            _vprint("  未配置 translation_reference_point_in_T_m，回退使用默认网格中心(ref=grid_center)")
         else:
             ref_point_T = np.array(ref_point_cfg, dtype=np.float64)
             if ref_point_T.size != 3:
@@ -357,11 +425,11 @@ def build_B_T_T_from_config(
         # ref_B = R_B_T * ref_T + origin_B
         # origin_B(Tag0) = ref_B - R_B_T * ref_T
         translation_B = translation_input_B - (R_B_T @ ref_point_T)
-        print(
+        _vprint(
             f"  - translation_reference={translation_ref}: 使用translation_reference_point_in_T_m换算为Tag0位置"
         )
-        print(f"    reference_point_T(m)      = {_fmt4(ref_point_T)}")
-        print(f"    default_grid_center_T(m)  = {_fmt4(default_grid_center_T)}")
+        _vprint(f"    reference_point_T(m)      = {_fmt4(ref_point_T)}")
+        _vprint(f"    default_grid_center_T(m)  = {_fmt4(default_grid_center_T)}")
 
     B_T_T = _make_transform(R_B_T, translation_B, "B_T_T")
     _pretty_mat("B_T_T", B_T_T)
@@ -370,13 +438,11 @@ def build_B_T_T_from_config(
 
 def compute_B_T_Cl(B_T_T: np.ndarray, Cl_T_T: np.ndarray) -> np.ndarray:
     """主链：B_T_Cl = B_T_T @ inv(Cl_T_T)。"""
-    print("\n[求解] 计算左相机到底盘变换 (B_T_Cl: Cl -> B)")
+    _vprint("\n[求解] 计算左相机到底盘变换 (B_T_Cl: Cl -> B)")
     T_T_Cl = _invert_transform(Cl_T_T, "T_T_Cl")
-    T_T_B = _invert_transform(B_T_T, "B_T_T")
     _pretty_mat("Cl_T_T", Cl_T_T)
     _pretty_mat("T_T_Cl", T_T_Cl)
     _pretty_mat("B_T_T", B_T_T)
-    _pretty_mat("T_T_B", T_T_B)
     B_T_Cl = B_T_T @ T_T_Cl
     _ensure_transform(B_T_Cl, "B_T_Cl")
     _pretty_mat("B_T_Cl", B_T_Cl)
@@ -385,7 +451,7 @@ def compute_B_T_Cl(B_T_T: np.ndarray, Cl_T_T: np.ndarray) -> np.ndarray:
 
 def compute_B_T_Cr(B_T_Cl: np.ndarray, Cr_T_Cl: np.ndarray) -> np.ndarray:
     """右相机：B_T_Cr = B_T_Cl @ inv(Cr_T_Cl)。"""
-    print("\n[求解] 计算右相机到底盘变换 (B_T_Cr: Cr -> B)")
+    _vprint("\n[求解] 计算右相机到底盘变换 (B_T_Cr: Cr -> B)")
     Cl_T_Cr = _invert_transform(Cr_T_Cl, "Cl_T_Cr")
     B_T_Cr = B_T_Cl @ Cl_T_Cr
     _ensure_transform(B_T_Cr, "B_T_Cr")
@@ -408,8 +474,8 @@ def validate_stereo_consistency(
     strict: bool = True,
 ) -> bool:
     """校验双目外参与左右相机位姿的一致性。"""
-    print("\n" + "-" * 50)
-    print("[双目外参一致性校验]")
+    _vprint("\n" + "-" * 50)
+    _vprint("[双目外参一致性校验]")
 
     # 计算预测的右相机位姿：Cr_T_T_pred = Cr_T_Cl @ Cl_T_T
     Cr_T_T_pred = Cr_T_Cl @ Cl_T_T
@@ -424,9 +490,11 @@ def validate_stereo_consistency(
     # 平移误差（米）
     trans_error_m = float(np.linalg.norm(Delta_T[:3, 3]))
 
-    print(f"位姿误差分析:")
-    print(f"  旋转误差: {rot_error_deg:.3f}°")
-    print(f"  平移误差: {trans_error_m:.4f}m")
+    # 非 verbose 时也给一个简短结论，方便用户快速判断质量
+    print(f"双目一致性: 旋转误差 {rot_error_deg:.3f}°，平移误差 {trans_error_m:.4f}m")
+    _vprint(f"位姿误差分析:")
+    _vprint(f"  旋转误差: {rot_error_deg:.3f}°")
+    _vprint(f"  平移误差: {trans_error_m:.4f}m")
 
     # 几何验证：选择几个显眼Tag进行3D点验证
     tag_centers_T = {
@@ -437,7 +505,7 @@ def validate_stereo_consistency(
         board_cfg["tags_x"], board_cfg["tags_y"], tag_centers_T
     )
 
-    print(f"\n几何一致性验证（{len(picked_ids)}个关键Tag）:")
+    _vprint(f"\n几何一致性验证（{len(picked_ids)}个关键Tag）:")
     max_point_error = 0.0
     max_pixel_error_l = 0.0
     max_pixel_error_r = 0.0
@@ -459,7 +527,7 @@ def validate_stereo_consistency(
         point_error = np.linalg.norm(p_Cr_measured - p_Cr_predicted)
         max_point_error = max(max_point_error, point_error)
 
-        print(f"  Tag{tid}: 3D点误差 {point_error:.4f}m", end="")
+        _vprint(f"  Tag{tid}: 3D点误差 {point_error:.4f}m", end="")
 
         # 像素重投影误差（如果有相机内参）
         if pixel_error_available:
@@ -526,16 +594,14 @@ def validate_stereo_consistency(
             else:
                 pixel_error_r = float("nan")
 
-            print(
-                f", 左像素误差 {pixel_error_l:.2f}px, 右像素误差 {pixel_error_r:.2f}px"
-            )
+            _vprint(f", 左像素误差 {pixel_error_l:.2f}px, 右像素误差 {pixel_error_r:.2f}px")
         else:
-            print()  # 换行
+            _vprint()  # 换行
 
-    print(f"  最大3D点误差: {max_point_error:.4f}m")
+    _vprint(f"  最大3D点误差: {max_point_error:.4f}m")
     if pixel_error_available:
-        print(f"  最大左像素误差: {max_pixel_error_l:.2f}px")
-        print(f"  最大右像素误差: {max_pixel_error_r:.2f}px")
+        _vprint(f"  最大左像素误差: {max_pixel_error_l:.2f}px")
+        _vprint(f"  最大右像素误差: {max_pixel_error_r:.2f}px")
 
     # 判断是否通过校验
     rot_threshold = 3.0  # 度
@@ -559,40 +625,34 @@ def validate_stereo_consistency(
             max_pixel_error_l < pixel_threshold and max_pixel_error_r < pixel_threshold
         )
         passed = passed and pixel_passed
-        print(
+        _vprint(
             f"\n校验阈值: 旋转<{rot_threshold}°, 平移<{trans_threshold}m, 3D点<{point_threshold}m, 像素<{pixel_threshold}px"
         )
     else:
-        print(
-            f"\n校验阈值: 旋转<{rot_threshold}°, 平移<{trans_threshold}m, 3D点<{point_threshold}m"
-        )
+        _vprint(f"\n校验阈值: 旋转<{rot_threshold}°, 平移<{trans_threshold}m, 3D点<{point_threshold}m")
 
     if passed:
         print("✓ 双目外参一致性校验通过")
     else:
         print("⚠ 双目外参一致性校验失败")
-        print("  未通过的指标:")
+        _vprint("  未通过的指标:")
         if rot_error_deg >= rot_threshold:
-            print(f"    - 旋转误差: {rot_error_deg:.3f}° (阈值: {rot_threshold}°)")
+            _vprint(f"    - 旋转误差: {rot_error_deg:.3f}° (阈值: {rot_threshold}°)")
         if trans_error_m >= trans_threshold:
-            print(f"    - 平移误差: {trans_error_m:.4f}m (阈值: {trans_threshold}m)")
+            _vprint(f"    - 平移误差: {trans_error_m:.4f}m (阈值: {trans_threshold}m)")
         if max_point_error >= point_threshold:
-            print(f"    - 3D点误差: {max_point_error:.4f}m (阈值: {point_threshold}m)")
+            _vprint(f"    - 3D点误差: {max_point_error:.4f}m (阈值: {point_threshold}m)")
         if (
             pixel_error_available
             and not np.isnan(max_pixel_error_l)
             and not np.isnan(max_pixel_error_r)
         ):
             if max_pixel_error_l >= pixel_threshold:
-                print(
-                    f"    - 左像素误差: {max_pixel_error_l:.2f}px (阈值: {pixel_threshold}px)"
-                )
+                _vprint(f"    - 左像素误差: {max_pixel_error_l:.2f}px (阈值: {pixel_threshold}px)")
             if max_pixel_error_r >= pixel_threshold:
-                print(
-                    f"    - 右像素误差: {max_pixel_error_r:.2f}px (阈值: {pixel_threshold}px)"
-                )
+                _vprint(f"    - 右像素误差: {max_pixel_error_r:.2f}px (阈值: {pixel_threshold}px)")
 
-    print("-" * 50)
+    _vprint("-" * 50)
     return passed
 
 
@@ -606,6 +666,8 @@ def print_tag_coordinates(
     board_cfg: Dict[str, Any],
 ) -> None:
     """打印显眼Tag中心点的链式坐标变换，每一步都可验证。"""
+    if not VERBOSE:
+        return
     print("\n" + "-" * 60)
     print("[显眼Tag中心点坐标 - 链式变换验证]")
 
@@ -663,180 +725,222 @@ def print_tag_coordinates(
     print("-" * 60)
 
 
-def process_step5_images(calibration_data, max_images=None):
-    """处理step5图像并计算相机位姿。"""
-    print("\n处理step5图像...")
+def process_step5_images(
+    calibration_data: Dict[str, Any],
+    *,
+    image_root: Path,
+    cameras: List[str],
+    config_path: str,
+    max_images: Optional[int] = None,
+) -> Dict[str, Any]:
+    """处理 Step5 图像并估计每个相机的 C_T_T（T->C）。"""
+    _vprint("\n处理 step5 图像...")
 
-    # 获取图像路径
-    left_images = sorted(
-        glob.glob("images/step5/left/*.png") + glob.glob("images/step5/left/*.jpg")
-    )
-    right_images = sorted(
-        glob.glob("images/step5/right/*.png") + glob.glob("images/step5/right/*.jpg")
-    )
+    config = load_config(config_path)
+    ds = get_step5_dataset(config)
+    use_ds = bool(ds.get("enabled", False))
 
-    if max_images is not None and max_images > 0:
-        left_images = left_images[:max_images]
-        right_images = right_images[:max_images]
-
-    # 设置检测器
     detector_params = cv2.aruco.DetectorParameters()
     detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
 
-    if len(left_images) == 0:
-        raise ValueError("未找到step5图像，请先运行 step5a_capture_for_base.py")
-    # 处理左相机图像
-    print(f"\n处理 {len(left_images)} 张左相机图像...")
-    left_poses = process_images_and_estimate_pose(
-        left_images,
-        calibration_data["aruco_dict"],
-        detector_params,
-        calibration_data["obj_points"],
-        calibration_data["tag_ids"],
-        calibration_data["K_l"],
-        calibration_data["dist_l"],
-        camera_name="Cl",
-        use_multiscale=bool(calibration_data.get("use_multiscale", True)),
-        opencv_refine=bool(calibration_data.get("opencv_refine", False)),
-        board=calibration_data.get("opencv_board"),
-    )
-    if len(left_poses) < 1:
-        raise ValueError("左相机有效位姿太少，无法进行可靠估计")
-    # 计算左相机位姿
-    left_rvecs = [pose[0] for pose in left_poses]
-    left_tvecs = [pose[1] for pose in left_poses]
-    Cl_T_T = compute_C_T_T_mean_pose(left_rvecs, left_tvecs, cam_name="Cl")
+    C_T_T_by_cam: Dict[str, np.ndarray] = {}
+    pose_stats: Dict[str, Dict[str, Any]] = {}
 
-    # 处理右相机图像（如果存在）
-    Cr_T_T = None
-    right_poses = []
-    if len(right_images) > 0:
-        print(f"\n处理 {len(right_images)} 张右相机图像...")
-        right_poses = process_images_and_estimate_pose(
-            right_images,
+    for cam in cameras:
+        expected_desc = ""
+        if use_ds:
+            images_p = get_step5_camera_images(config, cam)
+            images = [str(p) for p in images_p]
+            expected_desc = "config.step5_dataset 指定的 raw_dir/raw_glob 或 image_root/<cam>"
+        else:
+            cam_dir = image_root / cam
+            images = _glob_images(cam_dir)
+            expected_desc = f"{cam_dir}/*.png|jpg|jpeg|bmp"
+        if max_images is not None and max_images > 0:
+            images = images[: int(max_images)]
+
+        if len(images) == 0:
+            print(f"  - {cam}: 未找到图像，跳过（期望 {expected_desc}）")
+            continue
+
+        intr_path = _intrinsics_path_for_camera(cam)
+        if not os.path.exists(intr_path):
+            print(f"  - {cam}: 缺少内参 {intr_path}，跳过")
+            continue
+
+        K, dist = load_intrinsics(intr_path)
+
+        _vprint(f"\n处理 {cam}: {len(images)} 张图像...")
+        poses = process_images_and_estimate_pose(
+            images,
             calibration_data["aruco_dict"],
             detector_params,
             calibration_data["obj_points"],
             calibration_data["tag_ids"],
-            calibration_data["K_r"],
-            calibration_data["dist_r"],
-            camera_name="Cr",
+            K,
+            dist,
+            camera_name=cam,
             use_multiscale=bool(calibration_data.get("use_multiscale", True)),
             opencv_refine=bool(calibration_data.get("opencv_refine", False)),
             board=calibration_data.get("opencv_board"),
         )
-    if len(right_poses) < 1:
-        raise ValueError("右相机有效位姿太少，无法进行可靠估计")
-    right_rvecs = [pose[0] for pose in right_poses]
-    right_tvecs = [pose[1] for pose in right_poses]
-    Cr_T_T = compute_C_T_T_mean_pose(right_rvecs, right_tvecs, cam_name="Cr")
+
+        pose_stats[cam] = {
+            "total_images": int(len(images)),
+            "valid_poses": int(len(poses)),
+        }
+
+        if len(poses) < 1:
+            print(f"  - {cam}: 有效位姿过少，跳过")
+            continue
+
+        rvecs = [p[0] for p in poses]
+        tvecs = [p[1] for p in poses]
+        C_T_T_by_cam[cam] = compute_C_T_T_mean_pose(rvecs, tvecs, cam_name=cam)
+
+    if len(C_T_T_by_cam) == 0:
+        raise ValueError(
+            "没有任何相机得到有效位姿。\n"
+            "请检查：Step5 图像路径/清晰度、内参 results/<cam>_intrinsics.json、以及 AprilTag 检测参数。"
+        )
 
     return {
-        "Cl_T_T": Cl_T_T,
-        "Cr_T_T": Cr_T_T,
-        "left_poses_count": len(left_poses),
-        "right_poses_count": len(right_poses),
-        "left_images_count": len(left_images),
-        "right_images_count": len(right_images),
+        "C_T_T_by_cam": C_T_T_by_cam,
+        "pose_stats": pose_stats,
     }
 
 
-def compute_camera_to_base_transforms(calibration_data, pose_data):
-    """计算相机到底盘的变换矩阵。"""
-    print("\n计算相机到底盘变换矩阵...")
-    # 构造标定板到底盘的变换
+def compute_B_T_C(B_T_T: np.ndarray, C_T_T: np.ndarray, *, cam: str) -> np.ndarray:
+    """主链：B_T_C = B_T_T @ inv(C_T_T)。"""
+    T_T_C = _invert_transform(C_T_T, f"T_T_{cam}")
+    B_T_C = B_T_T @ T_T_C
+    _ensure_transform(B_T_C, f"B_T_{cam}")
+    return B_T_C
+
+
+def compute_camera_to_base_transforms(
+    calibration_data: Dict[str, Any], pose_data: Dict[str, Any]
+) -> Dict[str, Any]:
+    """计算每个相机到 Base 的外参 B_T_C。"""
+    _vprint("\n计算相机到底盘变换矩阵...")
+
     B_T_T = build_B_T_T_from_config(
         calibration_data["transform_cfg"], calibration_data["board_cfg"]
     )
-    # 计算左相机到底盘的变换
-    B_T_Cl = compute_B_T_Cl(B_T_T, pose_data["Cl_T_T"])
-    # 计算右相机变换（如果有右相机数据）
-    B_T_Cr = None
 
-    stereo_validation_passed = False
-    if pose_data["Cr_T_T"] is not None:
-        # 双目外参一致性校验
-        stereo_validation_passed = validate_stereo_consistency(
-            Cl_T_T=pose_data["Cl_T_T"],
-            Cr_T_T=pose_data["Cr_T_T"],
-            Cr_T_Cl=calibration_data["Cr_T_Cl"],
-            obj_points=calibration_data["obj_points"],
-            tag_ids=calibration_data["tag_ids"],
-            board_cfg=calibration_data["board_cfg"],
-            K_l=calibration_data["K_l"],
-            dist_l=calibration_data["dist_l"],
-            K_r=calibration_data["K_r"],
-            dist_r=calibration_data["dist_r"],
-            strict=False,  # 不严格模式，只警告不中断
-        )
-        # 计算右相机位姿
-        B_T_Cr = compute_B_T_Cr(B_T_Cl, calibration_data["Cr_T_Cl"])
-        print("\n✓ 左右相机位姿均已计算")
+    C_T_T_by_cam: Dict[str, np.ndarray] = pose_data["C_T_T_by_cam"]
+    B_T_C: Dict[str, np.ndarray] = {}
+    methods: Dict[str, str] = {}
 
-        if not stereo_validation_passed:
-            print("  注意: 双目外参校验未完全通过，建议检查Step4双目标定质量")
-    else:
-        print("\n- 仅计算左相机位姿（右相机数据不足）")
+    # 先对有 Step5 图像的相机做直接求解
+    for cam, C_T_T in C_T_T_by_cam.items():
+        B_T_C[cam] = compute_B_T_C(B_T_T, C_T_T, cam=cam)
+        methods[cam] = "direct_pnp"
 
-    # 显示关键Tag坐标（链式验证）
-    print_tag_coordinates(
-        B_T_T=B_T_T,
-        Cl_T_T=pose_data["Cl_T_T"],
-        B_T_Cl=B_T_Cl,
-        obj_points=calibration_data["obj_points"],
-        tag_ids=calibration_data["tag_ids"],
-        board_cfg=calibration_data["board_cfg"],
-    )
+    # 再用 Step4 外参把 B_T_C 传播到其它相机（如果需要）
+    reference, T_cam_from_ref, source = _load_extrinsics_graph()
+    propagated: List[str] = []
+
+    if reference is not None and len(T_cam_from_ref) > 0 and len(B_T_C) > 0:
+        anchor_cam = next(iter(B_T_C.keys()))
+        if anchor_cam not in T_cam_from_ref:
+            _vprint(
+                f"  [提示] 外参图里缺少 anchor_cam={anchor_cam}，将跳过传播（可重新跑 Step4 以包含该相机）"
+            )
+        else:
+            # 先得到 B_T_Cref
+            if anchor_cam == reference:
+                B_T_Cref = B_T_C[anchor_cam]
+            else:
+                C_anchor_T_Cref = T_cam_from_ref[anchor_cam]
+                B_T_Cref = B_T_C[anchor_cam] @ _invert_transform(
+                    C_anchor_T_Cref, f"Cref_T_{anchor_cam}", strict=False
+                )
+
+            for cam, C_cam_T_Cref in T_cam_from_ref.items():
+                if cam in B_T_C:
+                    continue
+                B_T_C[cam] = B_T_Cref @ _invert_transform(
+                    C_cam_T_Cref, f"Cref_T_{cam}", strict=False
+                )
+                methods[cam] = "propagated_from_step4"
+                propagated.append(cam)
 
     return {
-        "B_T_Cl": B_T_Cl,
-        "B_T_Cr": B_T_Cr,
-        "stereo_validation_passed": stereo_validation_passed,
+        "B_T_C": B_T_C,
+        "methods": methods,
+        "propagation": {
+            "used": bool(len(propagated) > 0),
+            "source": source,
+            "reference": reference,
+            "propagated_cameras": propagated,
+        },
     }
 
 
-def save_calibration_results(calibration_data, pose_data, transform_data):
-    """保存标定结果到JSON文件。"""
-    result = {
+def save_calibration_results(
+    calibration_data: Dict[str, Any],
+    pose_data: Dict[str, Any],
+    transform_data: Dict[str, Any],
+    *,
+    image_root: Path,
+):
+    """保存标定结果到 JSON 文件。"""
+    B_T_C: Dict[str, np.ndarray] = transform_data["B_T_C"]
+    methods: Dict[str, str] = transform_data["methods"]
+
+    pose_stats: Dict[str, Dict[str, Any]] = pose_data.get("pose_stats", {})
+    per_cam_stats: Dict[str, Dict[str, Any]] = {}
+    for cam in sorted(set(list(pose_stats.keys()) + list(B_T_C.keys()))):
+        s = dict(pose_stats.get(cam, {}))
+        s["method"] = methods.get(cam)
+        per_cam_stats[cam] = s
+
+    result: Dict[str, Any] = {
         "timestamp": datetime.now().isoformat(),
-        "B_T_Cl": transform_data["B_T_Cl"].tolist(),
+        "image_root": str(image_root.as_posix()),
+        "B_T_C": {cam: T.tolist() for cam, T in B_T_C.items()},
+        "pose_stats": per_cam_stats,
+        "propagation": transform_data.get("propagation", {}),
         "config_used": {
             "board_to_base_transform": calibration_data["transform_cfg"],
             "apriltag_board": calibration_data["board_cfg"],
         },
-        "left_pose_stats": {
-            "total_images": pose_data["left_images_count"],
-            "valid_poses": pose_data["left_poses_count"],
-        },
-        "stereo_validation": {
-            "performed": transform_data["B_T_Cr"] is not None,
-            "passed": bool(transform_data["stereo_validation_passed"]),
-        },
     }
 
-    if transform_data["B_T_Cr"] is not None:
-        result["B_T_Cr"] = transform_data["B_T_Cr"].tolist()
-        result["right_pose_stats"] = {
-            "total_images": pose_data["right_images_count"],
-            "valid_poses": pose_data["right_poses_count"],
-        }
-
     os.makedirs("results", exist_ok=True)
-    # 说明：json.dump 默认 ensure_ascii=True，会把中文转成 \uXXXX，肉眼看起来像“乱码”。
-    # 这里显式使用 UTF-8 并关闭 ASCII 转义，保证文件里是可读中文。
     with open("results/camera_to_base.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
 
     print(f"\n✓ 结果已保存到 results/camera_to_base.json")
-    print(f"  左相机: B_T_Cl (Cl -> B)")
-    if transform_data["B_T_Cr"] is not None:
-        print(f"  右相机: B_T_Cr (Cr -> B)")
+    print(f"  相机数: {len(B_T_C)}")
 
 
 def main():
     """主函数 - 封装后的清晰流程。"""
     parser = argparse.ArgumentParser(
-        description="Step 5b: AprilTag 相机到机器人底盘外参标定（封装版）"
+        description="Step 5b: AprilTag 相机到机器人底盘外参标定（支持多相机）"
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="输出更多中间过程信息（用于排查/对齐坐标系与单位）。",
+    )
+    parser.add_argument(
+        "--config",
+        default="config/apriltag_config.json",
+        help="配置文件路径（默认：config/apriltag_config.json）",
+    )
+    parser.add_argument(
+        "--image_root",
+        default=None,
+        help="Step5 图片根目录（默认 None：优先读 config.step5_dataset.image_root；否则 images/step5）",
+    )
+    parser.add_argument(
+        "--cameras",
+        nargs="+",
+        default=None,
+        help="相机列表（空则自动扫描 image_root 下的子目录）",
     )
     parser.add_argument(
         "--max_images",
@@ -846,22 +950,59 @@ def main():
     )
     args = parser.parse_args()
 
+    global VERBOSE
+    VERBOSE = bool(args.verbose)
+
     print("=" * 60)
-    print("Step 5b: AprilTag 相机到底盘坐标系标定（封装版）")
+    print("Step 5b: AprilTag 相机到底盘坐标系标定")
+    if VERBOSE:
+        print("(verbose: ON)")
     print("=" * 60)
 
     try:
-        # 1. 加载标定数据
-        calibration_data = load_calibration_data()
+        cfg_path = str(args.config)
+        config = load_config(cfg_path)
+        ds = get_step5_dataset(config)
 
-        # 2. 处理图像并计算相机位姿
-        pose_data = process_step5_images(calibration_data, args.max_images)
+        if args.image_root is not None:
+            image_root = Path(str(args.image_root))
+        else:
+            image_root = ds.get("image_root", Path("images/step5"))
+            if not isinstance(image_root, Path):
+                image_root = Path(str(image_root))
 
-        # 3. 计算相机到底盘的变换矩阵
+        cameras = args.cameras
+        if cameras is None:
+            if bool(ds.get("enabled", False)):
+                cameras = get_step5_cameras(config, allow_scan=True)
+            else:
+                cameras = _discover_cameras(image_root)
+
+        if len(cameras) == 0:
+            raise ValueError(
+                f"未发现任何相机目录：{image_root} 下没有可用子目录。\n"
+                "期望结构：images/step5/<cam>/*.png|jpg|jpeg|bmp"
+            )
+
+        # 1) 加载标定数据
+        calibration_data = load_calibration_data(config_path=cfg_path)
+
+        # 2) 处理图像并计算各相机位姿 C_T_T
+        pose_data = process_step5_images(
+            calibration_data,
+            image_root=image_root,
+            cameras=list(cameras),
+            config_path=cfg_path,
+            max_images=args.max_images,
+        )
+
+        # 3) 计算相机到底盘的变换矩阵 B_T_C
         transform_data = compute_camera_to_base_transforms(calibration_data, pose_data)
 
-        # 4. 保存标定结果
-        save_calibration_results(calibration_data, pose_data, transform_data)
+        # 4) 保存标定结果
+        save_calibration_results(
+            calibration_data, pose_data, transform_data, image_root=image_root
+        )
 
     except (FileNotFoundError, ValueError) as e:
         print(f"\n错误: {e}")
@@ -872,4 +1013,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,6 +1,6 @@
 {
-  "_comment": "=== USB双目拼接相机配置模板 ===",
-  "_comment_usage": "使用方法: cp apriltag_config_usb.json.template apriltag_config.json 然后修改参数",
+  "_comment": "=== [LEGACY] USB双目拼接相机配置模板（当前仓库为 video-only）===",
+  "_comment_usage": "已弃用：当前仓库默认使用离线 mp4（video_stereo）。如需硬件采集请参考历史版本/archive。",
 
   "camera_settings": {
     "_comment": "相机类型和参数配置",
@@ -59,7 +59,16 @@
     "_comment_max_images": "目标采集的图像组数，建议: 20-50",
 
     "corner_refinement": "CORNER_REFINE_APRILTAG",
-    "_comment_corner_refinement": "角点优化方法，固定为 CORNER_REFINE_APRILTAG"
+    "_comment_corner_refinement": "角点优化方法：CORNER_REFINE_SUBPIX 更稳；CORNER_REFINE_APRILTAG 会切换到 AprilTag2 检测策略，可能在部分图像上导致 0 检测",
+
+    "detection": {
+      "use_multiscale": true,
+      "opencv_refine": true,
+      "profile": "balanced",
+      "roi": null,
+      "auto_roi": false,
+      "detector_params": {}
+    }
   },
 
   "board_to_base_transform": {
