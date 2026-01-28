@@ -1,5 +1,5 @@
 # Workspace
-./videos/**
+videos/**
 
 # Python
 __pycache__/
