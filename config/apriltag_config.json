@@ -80,6 +80,26 @@
       "right": {"raw_dir": "images/step5/right"}
     }
   },
+
+  "camera_to_base_calibration": {
+    "_comment": "Step5（camera->base）标定方式选择：apriltag_pnp=使用 step5b（需要 Step5 图片 + board_to_base_transform）；world_anchor=使用 step5c（需要世界位姿锚点 + Step4 外参，不需要 Step5 图片）。",
+    "mode": "apriltag_pnp",
+
+    "world_anchor": {
+      "_comment": "当 mode=world_anchor 时生效。你需要提供底盘在世界系的位姿 W_T_B，以及某个参考相机在世界系的位姿 W_T_Cref（单位：米/度；欧拉角默认 XYZ 内旋，与 Step5b 一致）。",
+      "reference_camera": "left",
+      "world_T_base": {
+        "translation": [0.0, 0.0, 0.0],
+        "rotation_euler_deg": [0.0, 0.0, 0.0],
+        "euler_order": "XYZ"
+      },
+      "world_T_reference_camera": {
+        "translation": [0.0, 0.0, 0.0],
+        "rotation_euler_deg": [0.0, 0.0, 0.0],
+        "euler_order": "XYZ"
+      }
+    }
+  },
   "apriltag_board": {
     "_comment": "AprilTag标定板配置 - 必须精确测量！",
 

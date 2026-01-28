@@ -119,6 +119,7 @@ def _step_cmd(step_script: str, *, config_path: Path, extra_args: Optional[List[
         "step3_intrinsic_apriltag.py",
         "step4_multi_extrinsic_pose_graph.py",
         "step5b_camera_to_base.py",
+        "step5c_camera_to_base_from_world.py",
     }
 
     cmd = [sys.executable, str(sp)]
@@ -199,6 +200,8 @@ def main() -> int:
     step5_ds = get_step5_dataset(config)
     use_step5_dataset = bool(step5_ds.get("enabled", False))
 
+    camera_to_base_mode = _get_camera_to_base_mode(config)
+
     # 仅用于提示：告诉用户 pipeline 识别到了哪些相机
     cameras: List[str] = []
     if use_dataset:
@@ -221,6 +224,8 @@ def main() -> int:
         print(f"step5_dataset: enabled (cameras={step5_cameras})")
     else:
         print("step5_dataset: disabled")
+
+    print(f"camera_to_base_calibration.mode: {camera_to_base_mode}")
     print("=" * 60)
 
     log_dir = (root / str(args.log_dir)).resolve() if not Path(str(args.log_dir)).is_absolute() else Path(str(args.log_dir))
@@ -276,9 +281,18 @@ def main() -> int:
             return rc
 
     # Step5（可选：相机->底盘）
-    if _should_run_step5(args=args, use_step5_dataset=use_step5_dataset):
+    if _should_run_step5(
+        args=args,
+        use_step5_dataset=use_step5_dataset,
+        camera_to_base_mode=camera_to_base_mode,
+    ):
         print("\n[步骤 5] 相机->底盘外参标定...")
-        cmd = _step_cmd("step5b_camera_to_base.py", config_path=config_path)
+        step5_script = (
+            "step5c_camera_to_base_from_world.py"
+            if camera_to_base_mode == "world_anchor"
+            else "step5b_camera_to_base.py"
+        )
+        cmd = _step_cmd(step5_script, config_path=config_path)
         rc = _run_and_tee(cmd, log_path=log_dir / "step5_camera_to_base.txt", cwd=root)
         results.append(StepResult("step5_camera_to_base", cmd, log_dir / "step5_camera_to_base.txt", rc))
         if rc != 0:
@@ -291,6 +305,7 @@ def main() -> int:
         "config": str(config_path.as_posix()),
         "image_dataset_enabled": bool(use_dataset),
         "step5_dataset_enabled": bool(use_step5_dataset),
+        "camera_to_base_mode": str(camera_to_base_mode),
         "cameras": cameras,
         "step5_cameras": step5_cameras,
         "steps": [
@@ -326,15 +341,38 @@ def main() -> int:
 
 
 # region Step5 运行策略
-def _should_run_step5(*, args: argparse.Namespace, use_step5_dataset: bool) -> bool:
+def _should_run_step5(
+    *,
+    args: argparse.Namespace,
+    use_step5_dataset: bool,
+    camera_to_base_mode: str,
+) -> bool:
     if bool(args.skip_step5):
         return False
     if bool(args.run_step5):
         return True
-    # 默认策略：只有在用户明确启用 step5_dataset 时，才把 Step5 纳入 --all
-    if bool(args.all) and bool(use_step5_dataset):
+    # 默认策略：只有在“有 Step5 输入数据”时，才把 Step5 纳入 --all。
+    # - apriltag_pnp：需要 step5_dataset
+    # - world_anchor：不需要 step5_dataset，但需要 camera_to_base_mode=world_anchor
+    if bool(args.all) and (bool(use_step5_dataset) or camera_to_base_mode == "world_anchor"):
         return True
     return False
+
+
+def _get_camera_to_base_mode(config: dict) -> str:
+    """读取 Step5 的求解模式。
+
+    约定：
+      config["camera_to_base_calibration"]["mode"] in {"apriltag_pnp", "world_anchor"}
+    """
+    calib_cfg = (config or {}).get("camera_to_base_calibration", {})
+    if not isinstance(calib_cfg, dict):
+        calib_cfg = {}
+
+    mode = str(calib_cfg.get("mode", "apriltag_pnp")).strip().lower() or "apriltag_pnp"
+    if mode not in {"apriltag_pnp", "world_anchor"}:
+        mode = "apriltag_pnp"
+    return mode
 
 
 # endregion

@@ -8,6 +8,8 @@
 {
   "camera_settings": {...},        // 相机配置
   "image_dataset": {...},          // （可选）多相机图片数据集输入（Step2/3/4）
+  "step5_dataset": {...},          // （可选）Step5 图片数据集输入（Step5b）
+  "camera_to_base_calibration": {...}, // （可选）Step5 求解模式选择（Step5b/Step5c）
   "apriltag_board": {...},         // 标定板配置
   "calibration_settings": {...},   // 标定设置
   "board_to_base_transform": {...} // 坐标变换配置
@@ -349,6 +351,52 @@ Step5 需要一批“标定板固定安装在底盘坐标系中”的图片（�
 - Step5 **需要**每个相机的内参：`results/<cam>_intrinsics.json`（来自 Step3）。
 - 若某些相机没有 Step5 图片，但你做过 Step4（相机间外参），Step5 会尝试用 Step4 的外参把 $B\_T\_C$ 从已有相机“传播”到其它相机（不如直接拍更稳）。
 - Step5 的物理测量（`board_to_base_transform`）精度决定最终质量：建议反复核对单位/参考点。
+
+## 4.5 camera_to_base_calibration - Step5 的另一种方式（world-anchor，无需 Step5 图片）
+
+如果你已经能拿到“世界坐标系”下的绝对位姿（例如动捕 / SLAM / GNSS），你可以不拍 Step5 AprilTag 图片，直接通过坐标系推导得到相机->底盘外参。
+
+该方式对应脚本：`step5c_camera_to_base_from_world.py`。
+
+### 基本输入
+
+你需要提供：
+
+- 底盘在世界系的位姿：$W\_T\_B$（Base -> World）
+- 某个参考相机在世界系的位姿：$W\_T\_{C\_ref}$（Cam_ref -> World）
+- Step4 相机间外参（用于传播到其它相机）：
+  - `results/multi_camera_extrinsics.json`（多相机 pose graph），或
+  - `results/stereo_extrinsics.json`（双目）
+
+核心公式（本仓库约定 `A_T_B` 表示 B->A）：
+
+$$
+B\_T\_{C\_ref} = (W\_T\_B)^{-1} \cdot W\_T\_{C\_ref}
+$$
+
+然后通过 Step4 外参传播得到其它相机的 $B\_T\_C$。
+
+### 配置示例
+
+在 `apriltag_config.json` 里增加（或修改）如下段落：
+
+- `camera_to_base_calibration.mode`: 设为 `"world_anchor"`
+- `camera_to_base_calibration.world_anchor.reference_camera`: 参考相机名（需与你的 Step4 输出相机名一致）
+- `camera_to_base_calibration.world_anchor.world_T_base`: $W\_T\_B$
+- `camera_to_base_calibration.world_anchor.world_T_reference_camera`: $W\_T\_{C\_ref}$
+
+注意：
+- 平移单位：米
+- 欧拉角单位：度
+- `euler_order` 默认使用 `XYZ`（与 Step5b 的 `board_to_base_transform.rotation_euler_deg` 口径一致）
+
+### 运行方式
+
+- 单独运行：
+  - `python step5c_camera_to_base_from_world.py --config config/apriltag_config.json`
+
+- 使用流水线：
+  - 当 `camera_to_base_calibration.mode=world_anchor` 时，`run_calibration_pipeline.py` 会自动选择 Step5c（即使未启用 step5_dataset）。
 
 ## 5. board_to_base_transform - 坐标变换配置
 

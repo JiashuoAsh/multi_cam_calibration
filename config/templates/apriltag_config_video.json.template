@@ -70,6 +70,24 @@
     }
   },
 
+  "camera_to_base_calibration": {
+    "_comment": "Step5（camera->base）标定方式选择：apriltag_pnp=step5b；world_anchor=step5c（需要世界位姿锚点 + Step4 外参，不需要 Step5 图片）。",
+    "mode": "apriltag_pnp",
+    "world_anchor": {
+      "reference_camera": "left",
+      "world_T_base": {
+        "translation": [0.0, 0.0, 0.0],
+        "rotation_euler_deg": [0.0, 0.0, 0.0],
+        "euler_order": "XYZ"
+      },
+      "world_T_reference_camera": {
+        "translation": [0.0, 0.0, 0.0],
+        "rotation_euler_deg": [0.0, 0.0, 0.0],
+        "euler_order": "XYZ"
+      }
+    }
+  },
+
   "apriltag_board": {
     "_comment": "AprilTag标定板配置 - 必须精确测量！",
     "family": "tag36h11",

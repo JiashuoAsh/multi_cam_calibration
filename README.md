@@ -176,6 +176,17 @@ $$
 
 这个配置的精度，会直接决定最终“相机->底盘”的精度。
 
+### 4) `camera_to_base_calibration`（Step5 可选：world-anchor 方式）
+
+如果你已经能获取到“世界坐标系”下的绝对位姿（例如动捕/SLAM/GNSS），可以不拍 Step5 的 AprilTag 图片，直接用世界位姿锚点求相机->底盘外参。
+
+- 脚本：`step5c_camera_to_base_from_world.py`
+- 配置：`camera_to_base_calibration.mode = "world_anchor"`
+- 需要提供：
+  - `world_T_base`（$W_T_B$）
+  - `world_T_reference_camera`（$W_T_{C_ref}$）
+  - 以及 Step4 的相机间外参结果（用于传播到其它相机）
+
 ---
 
 ## 每个 Step 需要什么数据？会产出什么？

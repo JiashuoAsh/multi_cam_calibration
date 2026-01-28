@@ -32,6 +32,7 @@ import cv2
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from scipy.spatial.transform import Rotation
+from libs.extrinsics_graph import load_extrinsics_graph, propagate_B_T_C
 from utils import (
     load_config,
     get_step5_dataset,
@@ -230,22 +231,6 @@ def _intrinsics_path_for_camera(cam: str) -> str:
     return str(Path("results") / f"{cam}_intrinsics.json")
 
 
-def load_stereo_extrinsics(json_path):
-    """加载双目外参 (统一转换到米)。"""
-    with open(json_path, "r") as f:
-        data = json.load(f)
-
-    R = np.array(data["R"], dtype=np.float64)
-    t = np.array(data["t"], dtype=np.float64).reshape(3, 1)
-    # mm->m
-    t = t / 1000.0
-
-    # 构造 Cr_T_Cl (左相机到右相机的变换)
-    Cr_T_Cl = _make_transform(R, t, "Cr_T_Cl")
-    _pretty_mat("Cr_T_Cl", Cr_T_Cl)
-    return Cr_T_Cl
-
-
 def load_calibration_data(*, config_path: str) -> Dict[str, Any]:
     """加载标定数据（与相机数量无关）。"""
     _vprint("\n加载标定数据...")
@@ -301,38 +286,6 @@ def _glob_images(cam_dir: Path) -> List[str]:
     for pat in patterns:
         files.extend(glob.glob(str(cam_dir / pat)))
     return sorted(files)
-
-
-def _load_extrinsics_graph() -> Tuple[Optional[str], Dict[str, np.ndarray], Optional[str]]:
-    """加载 Step4 的相机间外参，用于把 B_T_C 从已知相机传播到其它相机。
-
-    Returns:
-        reference: Step4 外参的参考相机名（Cam_ref）
-        T_cam_from_ref: {cam: C_cam_T_Cref}，即 Cam <- Ref
-        source: 使用的文件路径（用于记录/打印）
-    """
-    multi_path = Path("results/multi_camera_extrinsics.json")
-    if multi_path.exists():
-        with open(multi_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        reference = str(data["reference"])
-        out: Dict[str, np.ndarray] = {}
-        for cam, entry in data.get("T_cam_from_ref", {}).items():
-            out[str(cam)] = np.asarray(entry["T"], dtype=np.float64)
-        return reference, out, str(multi_path)
-
-    stereo_path = Path("results/stereo_extrinsics.json")
-    if stereo_path.exists():
-        # 约定：stereo_extrinsics.json 给出 Cr_T_Cl（右 <- 左）
-        Cr_T_Cl = load_stereo_extrinsics(str(stereo_path))
-        reference = "left"
-        out = {
-            "left": np.eye(4, dtype=np.float64),
-            "right": Cr_T_Cl,
-        }
-        return reference, out, str(stereo_path)
-
-    return None, {}, None
 
 
 def compute_C_T_T_mean_pose(valid_rvecs, valid_tvecs, *, cam_name: str) -> np.ndarray:
@@ -838,41 +791,35 @@ def compute_camera_to_base_transforms(
         methods[cam] = "direct_pnp"
 
     # 再用 Step4 外参把 B_T_C 传播到其它相机（如果需要）
-    reference, T_cam_from_ref, source = _load_extrinsics_graph()
+    graph = load_extrinsics_graph(results_dir=Path("results"))
     propagated: List[str] = []
 
-    if reference is not None and len(T_cam_from_ref) > 0 and len(B_T_C) > 0:
+    if graph is not None and len(graph.T_cam_from_ref) > 0 and len(B_T_C) > 0:
         anchor_cam = next(iter(B_T_C.keys()))
-        if anchor_cam not in T_cam_from_ref:
-            _vprint(
-                f"  [提示] 外参图里缺少 anchor_cam={anchor_cam}，将跳过传播（可重新跑 Step4 以包含该相机）"
+        try:
+            propagated_all = propagate_B_T_C(
+                B_T_C_anchor=B_T_C[anchor_cam],
+                anchor_cam=anchor_cam,
+                graph=graph,
             )
-        else:
-            # 先得到 B_T_Cref
-            if anchor_cam == reference:
-                B_T_Cref = B_T_C[anchor_cam]
-            else:
-                C_anchor_T_Cref = T_cam_from_ref[anchor_cam]
-                B_T_Cref = B_T_C[anchor_cam] @ _invert_transform(
-                    C_anchor_T_Cref, f"Cref_T_{anchor_cam}", strict=False
-                )
+        except ValueError as e:
+            _vprint(f"  [提示] Step4 外参传播跳过：{e}")
+            propagated_all = {}
 
-            for cam, C_cam_T_Cref in T_cam_from_ref.items():
-                if cam in B_T_C:
-                    continue
-                B_T_C[cam] = B_T_Cref @ _invert_transform(
-                    C_cam_T_Cref, f"Cref_T_{cam}", strict=False
-                )
-                methods[cam] = "propagated_from_step4"
-                propagated.append(cam)
+        for cam, T in propagated_all.items():
+            if cam in B_T_C:
+                continue
+            B_T_C[cam] = T
+            methods[cam] = "propagated_from_step4"
+            propagated.append(cam)
 
     return {
         "B_T_C": B_T_C,
         "methods": methods,
         "propagation": {
             "used": bool(len(propagated) > 0),
-            "source": source,
-            "reference": reference,
+            "source": (graph.source if graph is not None else None),
+            "reference": (graph.reference if graph is not None else None),
             "propagated_cameras": propagated,
         },
     }
