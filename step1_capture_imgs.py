@@ -6,7 +6,7 @@
 
 如果你是用 mp4：请使用
   - step1_extract_imgs_from_video.py  (抽帧生成 images/raw)
-  - step2_filter_images.py → step3_intrinsic_apriltag.py → step4_stereo_extrinsic.py
+  - step2_filter_images.py → step3_intrinsic_apriltag.py → step4_multi_extrinsic_pose_graph.py
 """
 
 

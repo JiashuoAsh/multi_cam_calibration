@@ -14,7 +14,7 @@ class TestStep5cWorldAnchor(unittest.TestCase):
             "camera_to_base_calibration": {
                 "mode": "world_anchor",
                 "world_anchor": {
-                    "reference_camera": "left",
+                    "reference_camera": "cam0",
                     "world_T_base": {
                         "translation": [5.0, 0.0, 0.0],
                         "rotation_euler_deg": [0.0, 0.0, 0.0],
@@ -33,9 +33,9 @@ class TestStep5cWorldAnchor(unittest.TestCase):
             out = solve_camera_to_base_from_world(config=cfg, results_dir=Path(d))
 
         B_T_C = out["B_T_C"]
-        self.assertIn("left", B_T_C)
+        self.assertIn("cam0", B_T_C)
 
-        T = np.asarray(B_T_C["left"], dtype=np.float64)
+        T = np.asarray(B_T_C["cam0"], dtype=np.float64)
         np.testing.assert_allclose(T[:3, :3], np.eye(3), atol=1e-12)
         np.testing.assert_allclose(T[:3, 3], np.array([2.0, 0.0, 0.0]), atol=1e-12)
 

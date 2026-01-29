@@ -6,9 +6,7 @@
 设计原则：
 - 单一入口：只要配置好 config/apriltag_config.json，即可自动识别相机数量并完成筛图/内参/外参。
 - 尽量不侵入：各 step 仍可单独运行；该脚本只是按顺序调用并做最小的结果检查与日志落盘。
-- 兼容旧流程：
-  - 若 config.image_dataset.enabled=false：默认走旧双目 left/right（Step4 走 step4_stereo_extrinsic.py）
-  - 若 config.image_dataset.enabled=true：默认走多相机（Step4 走 step4_multi_extrinsic_pose_graph.py）
+- 统一数据集格式：相机命名统一使用 cam0/cam1/cam2...，由 config.image_dataset.cameras 指定。
 
 用法示例：
 - 跑 Step2~Step4（默认）：
@@ -129,6 +127,72 @@ def _step_cmd(step_script: str, *, config_path: Path, extra_args: Optional[List[
     return cmd
 
 
+def _perf_args_for_step(*, step_script: str, args: argparse.Namespace) -> List[str]:
+    """将 pipeline 的统一性能参数映射到各 step 的具体参数名。
+
+    说明：
+    - 不同 step 对“候选总数/有效目标”的参数名不同（images/pairs/frames/poses）。
+    - 为避免误传未知参数，这里按脚本名白名单映射。
+    """
+
+    perf_supported = {
+        "step2_filter_images.py",
+        "step3_intrinsic_apriltag.py",
+        "step4_multi_extrinsic_pose_graph.py",
+        "step5b_camera_to_base.py",
+    }
+    if step_script not in perf_supported:
+        return []
+
+    out: List[str] = []
+
+    # 通用：并行/缓存/预筛选/扫描策略
+    if int(getattr(args, "workers", 0)) > 0:
+        out += ["--workers", str(int(args.workers))]
+    if int(getattr(args, "prefetch", 0)) > 0:
+        out += ["--prefetch", str(int(args.prefetch))]
+
+    cache_dir = str(getattr(args, "cache_dir", "")).strip()
+    if cache_dir:
+        out += ["--cache_dir", cache_dir]
+    if bool(getattr(args, "no_cache", False)):
+        out += ["--no_cache"]
+    if bool(getattr(args, "force_redetect", False)):
+        out += ["--force_redetect"]
+    if bool(getattr(args, "prefilter", False)):
+        out += ["--prefilter"]
+
+    scan_strategy = str(getattr(args, "scan_strategy", "")).strip()
+    if scan_strategy:
+        out += ["--scan_strategy", scan_strategy]
+        out += ["--scan_seed", str(int(getattr(args, "scan_seed", 0)))]
+
+    if float(getattr(args, "max_detect_seconds", 0.0)) > 0:
+        out += ["--max_detect_seconds", str(float(args.max_detect_seconds))]
+
+    # 通用：扫描预算（按 step 映射）
+    target_valid = int(getattr(args, "scan_target_valid", 0))
+    max_total = int(getattr(args, "scan_max_total", 0))
+
+    if step_script in {"step2_filter_images.py", "step3_intrinsic_apriltag.py"}:
+        if target_valid > 0:
+            out += ["--max_valid_images", str(target_valid)]
+        if max_total > 0:
+            out += ["--max_total_images", str(max_total)]
+    elif step_script == "step4_multi_extrinsic_pose_graph.py":
+        if target_valid > 0:
+            out += ["--target_valid_frames", str(target_valid)]
+        if max_total > 0:
+            out += ["--max_total_frames", str(max_total)]
+    elif step_script == "step5b_camera_to_base.py":
+        if target_valid > 0:
+            out += ["--max_valid_poses", str(target_valid)]
+        if max_total > 0:
+            out += ["--max_total_images", str(max_total)]
+
+    return out
+
+
 # endregion
 
 
@@ -174,15 +238,70 @@ def main() -> int:
         help="强制运行 Step5（即使 step5_dataset 未启用；会用默认 images/step5/<cam>/ 扫描）。",
     )
     parser.add_argument(
-        "--force_pose_graph",
-        action="store_true",
-        help="强制使用位姿图 Step4（step4_multi_extrinsic_pose_graph.py），即使 image_dataset 未启用。",
-    )
-    parser.add_argument(
         "--log_dir",
         type=str,
         default="results/pipeline_logs",
         help="每一步日志输出目录（默认 results/pipeline_logs）。",
+    )
+
+    # 统一性能参数（可选）：只要在 pipeline 中指定一次，就会透传给支持的 step。
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help="多进程 worker 数（0=使用各 step 默认；>0 透传到各 step）。",
+    )
+    parser.add_argument(
+        "--prefetch",
+        type=int,
+        default=0,
+        help="并行时的预提交任务数（0=使用各 step 默认；>0 透传到各 step）。",
+    )
+    parser.add_argument(
+        "--cache_dir",
+        type=str,
+        default="",
+        help="检测缓存目录（空=使用各 step 默认）。",
+    )
+    parser.add_argument("--no_cache", action="store_true", help="禁用检测缓存（会显著变慢）。")
+    parser.add_argument("--force_redetect", action="store_true", help="忽略缓存强制重新检测（用于调参/排查）。")
+    parser.add_argument("--prefilter", action="store_true", help="启用廉价预筛选（减少 detector 调用）。")
+    parser.add_argument(
+        "--scan_strategy",
+        type=str,
+        default="",
+        choices=["", "sequential", "random", "uniform"],
+        help="扫描策略（空=使用各 step 默认）。",
+    )
+    parser.add_argument(
+        "--scan_seed",
+        type=int,
+        default=0,
+        help="random 扫描的随机种子（用于可复现）。",
+    )
+    parser.add_argument(
+        "--max_detect_seconds",
+        type=float,
+        default=0.0,
+        help="扫描+检测阶段的总耗时上限（秒，0=使用各 step 默认）。",
+    )
+    parser.add_argument(
+        "--scan_target_valid",
+        type=int,
+        default=0,
+        help=(
+            "统一‘有效目标’上限（0=不覆盖各 step 默认）。"
+            "会被映射为：step2/3=max_valid_images, step4_stereo=max_valid_pairs, step4_multi=target_valid_frames, step5b=max_valid_poses。"
+        ),
+    )
+    parser.add_argument(
+        "--scan_max_total",
+        type=int,
+        default=0,
+        help=(
+            "统一‘候选总数’上限（0=不覆盖各 step 默认）。"
+            "会被映射为：step2/3=max_total_images, step4_stereo=max_total_pairs, step4_multi=max_total_frames, step5b=max_total_images。"
+        ),
     )
     args = parser.parse_args()
 
@@ -194,8 +313,6 @@ def main() -> int:
         return 1
 
     config = load_config(str(config_path))
-    ds = get_image_dataset(config)
-    use_dataset = bool(ds.get("enabled", False))
 
     step5_ds = get_step5_dataset(config)
     use_step5_dataset = bool(step5_ds.get("enabled", False))
@@ -203,9 +320,11 @@ def main() -> int:
     camera_to_base_mode = _get_camera_to_base_mode(config)
 
     # 仅用于提示：告诉用户 pipeline 识别到了哪些相机
-    cameras: List[str] = []
-    if use_dataset:
-        cameras = get_dataset_cameras(config, allow_scan=True, fallback_stereo=True)
+    cameras: List[str] = get_dataset_cameras(config, allow_scan=True)
+    if len(cameras) == 0:
+        print("错误: 未找到任何相机。")
+        print("请在 config.image_dataset.cameras 中配置相机名与 raw_glob，或把图片放到 images/raw/<cam>/ 下。")
+        return 1
 
     step5_cameras: List[str] = []
     if use_step5_dataset:
@@ -215,10 +334,7 @@ def main() -> int:
     print("相机标定流水线开始执行")
     print(f"时间: {datetime.now().isoformat()}")
     print(f"config: {config_path}")
-    if use_dataset:
-        print(f"image_dataset: enabled (cameras={cameras})")
-    else:
-        print("image_dataset: disabled (legacy stereo left/right)")
+    print(f"image_dataset: enabled (cameras={cameras})")
 
     if use_step5_dataset:
         print(f"step5_dataset: enabled (cameras={step5_cameras})")
@@ -246,7 +362,11 @@ def main() -> int:
     # Step2
     if not bool(args.skip_step2):
         print("\n[步骤 2] 筛选包含标定板的图像...")
-        cmd = _step_cmd("step2_filter_images.py", config_path=config_path)
+        cmd = _step_cmd(
+            "step2_filter_images.py",
+            config_path=config_path,
+            extra_args=_perf_args_for_step(step_script="step2_filter_images.py", args=args),
+        )
         rc = _run_and_tee(cmd, log_path=log_dir / "step2_filter.txt", cwd=root)
         results.append(StepResult("step2_filter", cmd, log_dir / "step2_filter.txt", rc))
         if rc != 0:
@@ -256,7 +376,11 @@ def main() -> int:
     # Step3
     if not bool(args.skip_step3):
         print("\n[步骤 3] 相机内参标定...")
-        cmd = _step_cmd("step3_intrinsic_apriltag.py", config_path=config_path)
+        cmd = _step_cmd(
+            "step3_intrinsic_apriltag.py",
+            config_path=config_path,
+            extra_args=_perf_args_for_step(step_script="step3_intrinsic_apriltag.py", args=args),
+        )
         rc = _run_and_tee(cmd, log_path=log_dir / "step3_intrinsic.txt", cwd=root)
         results.append(StepResult("step3_intrinsic", cmd, log_dir / "step3_intrinsic.txt", rc))
         if rc != 0:
@@ -267,13 +391,13 @@ def main() -> int:
     if not bool(args.skip_step4):
         print("\n[步骤 4] 外参标定...")
 
-        if bool(args.force_pose_graph) or use_dataset:
-            step4_script = "step4_multi_extrinsic_pose_graph.py"
-        else:
-            # legacy stereo
-            step4_script = "step4_stereo_extrinsic.py"
+        step4_script = "step4_multi_extrinsic_pose_graph.py"
 
-        cmd = _step_cmd(step4_script, config_path=config_path)
+        cmd = _step_cmd(
+            step4_script,
+            config_path=config_path,
+            extra_args=_perf_args_for_step(step_script=step4_script, args=args),
+        )
         rc = _run_and_tee(cmd, log_path=log_dir / "step4_extrinsic.txt", cwd=root)
         results.append(StepResult("step4_extrinsic", cmd, log_dir / "step4_extrinsic.txt", rc))
         if rc != 0:
@@ -292,7 +416,10 @@ def main() -> int:
             if camera_to_base_mode == "world_anchor"
             else "step5b_camera_to_base.py"
         )
-        cmd = _step_cmd(step5_script, config_path=config_path)
+        extra_args = None
+        if step5_script == "step5b_camera_to_base.py":
+            extra_args = _perf_args_for_step(step_script=step5_script, args=args)
+        cmd = _step_cmd(step5_script, config_path=config_path, extra_args=extra_args)
         rc = _run_and_tee(cmd, log_path=log_dir / "step5_camera_to_base.txt", cwd=root)
         results.append(StepResult("step5_camera_to_base", cmd, log_dir / "step5_camera_to_base.txt", rc))
         if rc != 0:
@@ -303,7 +430,7 @@ def main() -> int:
     report: Dict[str, object] = {
         "timestamp": datetime.now().isoformat(),
         "config": str(config_path.as_posix()),
-        "image_dataset_enabled": bool(use_dataset),
+        "image_dataset_enabled": True,
         "step5_dataset_enabled": bool(use_step5_dataset),
         "camera_to_base_mode": str(camera_to_base_mode),
         "cameras": cameras,

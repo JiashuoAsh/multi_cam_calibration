@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Step 1 (Video): 从视频抽帧生成 images/raw 图像对
+"""Step 1 (Video): 从视频抽帧生成 images/raw 双相机数据集
 
 目的：
-- 把离线视频（双视频 or 单视频左右拼接）转换为本项目既有流水线可消费的数据集：
-  images/raw/left/*.png + images/raw/right/*.png
-- 后续直接复用：step2_filter_images.py → step3_intrinsic_apriltag.py → step4_stereo_extrinsic.py
+- 把离线视频（双视频 or 单视频左右拼接）转换为本项目统一的数据集格式：
+    images/raw/cam0/*.png + images/raw/cam1/*.png
+- 后续直接复用：step2_filter_images.py → step3_intrinsic_apriltag.py → step4_multi_extrinsic_pose_graph.py
 
 典型用法：
 1) 统一从配置读取（推荐）：
@@ -13,8 +13,8 @@
 说明：
 - 本脚本只负责“抽帧落盘”，不做 AprilTag 检测筛选；筛选交给 step2。
 - 视频输入与抽帧参数统一写在 config 中：
-  - camera_settings：视频路径 / 模式 / 旋转 / 拼接布局 / resize
-  - video_extract：every_n / max_pairs / start_frame / start_sec / out_dir / prefix / overwrite
+    - camera_settings：视频路径 / 模式 / camera_names / sbs_order / 旋转 / resize
+    - video_extract：every_n / max_pairs / start_frame / start_sec / out_dir / prefix / overwrite
 - 配置文件使用 JSON 标准语法，不支持 // 注释；本工程采用 "_comment" 字段作为可解析的“注释”。
 
 说明：
@@ -34,12 +34,6 @@ import cv2
 
 @dataclass
 class ExtractArgs:
-    video_left: Optional[str]
-    video_right: Optional[str]
-    video: Optional[str]
-    layout: str
-    rotate_left: str
-    rotate_right: str
     every_n: int
     max_pairs: int
     start_frame: int
@@ -47,8 +41,6 @@ class ExtractArgs:
     out_dir: str
     prefix: str
     overwrite: bool
-    force_resize_width: Optional[int]
-    force_resize_height: Optional[int]
 
 
 def _load_config(config_path: Path) -> dict:
@@ -95,34 +87,6 @@ def _maybe_clear_dir(p: Path) -> None:
     for f in p.glob("*"):
         if f.is_file():
             f.unlink()
-
-
-def _build_camera_settings(a: ExtractArgs) -> dict:
-    if a.video_left and a.video_right:
-        return {
-            "camera_type": "video_stereo",
-            "video_mode": "two_files",
-            "video_left_path": a.video_left,
-            "video_right_path": a.video_right,
-            "rotate_left": a.rotate_left,
-            "rotate_right": a.rotate_right,
-            "force_resize_width": a.force_resize_width,
-            "force_resize_height": a.force_resize_height,
-        }
-
-    if a.video:
-        return {
-            "camera_type": "video_stereo",
-            "video_mode": "single_sbs",
-            "video_path": a.video,
-            "sbs_layout": a.layout,
-            "rotate_left": a.rotate_left,
-            "rotate_right": a.rotate_right,
-            "force_resize_width": a.force_resize_width,
-            "force_resize_height": a.force_resize_height,
-        }
-
-    raise ValueError("必须提供 --video_left/--video_right 或 --video")
 
 
 def _try_seek(camera, *, start_frame: int, start_sec: float) -> int:
@@ -197,30 +161,48 @@ def main() -> None:
     if not isinstance(camera_settings_cfg, dict):
         raise SystemExit(f"错误：camera_settings 必须是 object：{config_path}")
 
+    if str(camera_settings_cfg.get("camera_type", "video_stereo")) != "video_stereo":
+        raise SystemExit("错误：step1_extract_imgs_from_video.py 仅支持 camera_settings.camera_type=video_stereo")
+
+    camera_names_any = camera_settings_cfg.get("camera_names", ["cam0", "cam1"])
+    if not isinstance(camera_names_any, (list, tuple)) or len(camera_names_any) != 2:
+        raise SystemExit("错误：camera_settings.camera_names 必须是长度为 2 的列表，例如 ['cam0','cam1']")
+    camera_names = [str(x).strip() for x in camera_names_any if str(x).strip()]
+    if len(camera_names) != 2 or len(set(camera_names)) != 2:
+        raise SystemExit("错误：camera_settings.camera_names 必须是长度为 2 的不重复相机名列表")
+    cam0, cam1 = camera_names[0], camera_names[1]
+
     # 解析 camera_settings（视频输入相关）
-    video_mode = str(camera_settings_cfg.get("video_mode", "two_files"))
-    layout = str(camera_settings_cfg.get("sbs_layout", "rl"))
-    rotate_left = str(camera_settings_cfg.get("rotate_left", "none"))
-    rotate_right = str(camera_settings_cfg.get("rotate_right", "none"))
+    camera_settings = dict(camera_settings_cfg)
+    camera_settings["camera_names"] = [cam0, cam1]
 
-    force_resize_width = camera_settings_cfg.get("force_resize_width", None)
-    force_resize_height = camera_settings_cfg.get("force_resize_height", None)
-
-    video_left = None
-    video_right = None
-    video = None
-
+    video_mode = str(camera_settings.get("video_mode", "two_files"))
     if video_mode == "two_files":
-        video_left = _resolve_path_maybe(camera_settings_cfg.get("video_left_path"), config_dir=config_dir)
-        video_right = _resolve_path_maybe(camera_settings_cfg.get("video_right_path"), config_dir=config_dir)
-        if not (video_left and video_right):
-            raise SystemExit("错误：camera_settings.video_mode=two_files 需要 video_left_path / video_right_path")
+        video_paths = camera_settings.get("video_paths", None)
+        if not isinstance(video_paths, dict):
+            raise SystemExit("错误：camera_settings.video_mode=two_files 需要 video_paths（dict）")
+
+        p0 = _resolve_path_maybe(video_paths.get(cam0), config_dir=config_dir)
+        p1 = _resolve_path_maybe(video_paths.get(cam1), config_dir=config_dir)
+        if not (p0 and p1):
+            raise SystemExit("错误：camera_settings.video_paths 必须包含 cam0/cam1 两路视频路径")
+
+        camera_settings["video_paths"] = {cam0: p0, cam1: p1}
+
     elif video_mode == "single_sbs":
-        video = _resolve_path_maybe(camera_settings_cfg.get("video_path"), config_dir=config_dir)
-        if not video:
+        p = _resolve_path_maybe(camera_settings.get("video_path"), config_dir=config_dir)
+        if not p:
             raise SystemExit("错误：camera_settings.video_mode=single_sbs 需要 video_path")
-        if layout not in ("lr", "rl"):
-            raise SystemExit(f"错误：camera_settings.sbs_layout 必须是 lr 或 rl（当前={layout}）")
+        camera_settings["video_path"] = p
+
+        sbs_order = camera_settings.get("sbs_order", [cam0, cam1])
+        if not isinstance(sbs_order, (list, tuple)) or len(sbs_order) != 2:
+            raise SystemExit("错误：camera_settings.sbs_order 必须是长度为 2 的列表，例如 ['cam0','cam1']")
+        sbs_order = [str(v) for v in sbs_order]
+        if set(sbs_order) != {cam0, cam1}:
+            raise SystemExit("错误：camera_settings.sbs_order 必须由 camera_names 的两个名字组成")
+        camera_settings["sbs_order"] = sbs_order
+
     else:
         raise SystemExit(f"错误：camera_settings.video_mode 不支持：{video_mode}（仅 two_files/single_sbs）")
 
@@ -249,12 +231,6 @@ def main() -> None:
         raise SystemExit("错误：video_extract.start_sec 必须 >= 0")
 
     args = ExtractArgs(
-        video_left=video_left,
-        video_right=video_right,
-        video=video,
-        layout=layout,
-        rotate_left=rotate_left,
-        rotate_right=rotate_right,
         every_n=int(every_n),
         max_pairs=int(max_pairs),
         start_frame=int(start_frame),
@@ -262,24 +238,21 @@ def main() -> None:
         out_dir=out_dir,
         prefix=prefix,
         overwrite=overwrite,
-        force_resize_width=force_resize_width,
-        force_resize_height=force_resize_height,
     )
 
     out_base = Path(args.out_dir)
-    out_left = out_base / "left"
-    out_right = out_base / "right"
-    _safe_mkdir(out_left)
-    _safe_mkdir(out_right)
+    out_cam0 = out_base / cam0
+    out_cam1 = out_base / cam1
+    _safe_mkdir(out_cam0)
+    _safe_mkdir(out_cam1)
 
     if args.overwrite:
-        _maybe_clear_dir(out_left)
-        _maybe_clear_dir(out_right)
+        _maybe_clear_dir(out_cam0)
+        _maybe_clear_dir(out_cam1)
 
     # 通过统一封装打开视频
     from libs.camera_wrapper import create_camera
 
-    camera_settings = _build_camera_settings(args)
     camera = create_camera(camera_settings)
     if not camera.open():
         raise SystemExit("错误：无法打开视频源，请检查路径/编码/权限")
@@ -297,11 +270,11 @@ def main() -> None:
 
     try:
         with index_csv.open("w", encoding="utf-8") as f:
-            f.write("saved_index,source_frame_index,timestamp_sec,left_path,right_path\n")
+            f.write(f"saved_index,source_frame_index,timestamp_sec,{cam0}_path,{cam1}_path\n")
 
             while True:
-                left, right, ts = camera.read_stereo()
-                if left is None or right is None:
+                frame0, frame1, ts = camera.read_stereo()
+                if frame0 is None or frame1 is None:
                     break
 
                 src_frame_idx = effective_start_frame + read_count
@@ -311,15 +284,17 @@ def main() -> None:
                     continue
 
                 base = f"{args.prefix}{src_frame_idx:06d}"
-                left_path = out_left / f"{base}.png"
-                right_path = out_right / f"{base}.png"
+                cam0_path = out_cam0 / f"{base}.png"
+                cam1_path = out_cam1 / f"{base}.png"
 
-                ok_l = cv2.imwrite(str(left_path), left)
-                ok_r = cv2.imwrite(str(right_path), right)
-                if not (ok_l and ok_r):
-                    raise RuntimeError(f"写入失败：{left_path} / {right_path}")
+                ok_0 = cv2.imwrite(str(cam0_path), frame0)
+                ok_1 = cv2.imwrite(str(cam1_path), frame1)
+                if not (ok_0 and ok_1):
+                    raise RuntimeError(f"写入失败：{cam0_path} / {cam1_path}")
 
-                f.write(f"{saved},{src_frame_idx},{(ts if ts is not None else '')},{left_path.as_posix()},{right_path.as_posix()}\n")
+                f.write(
+                    f"{saved},{src_frame_idx},{(ts if ts is not None else '')},{cam0_path.as_posix()},{cam1_path.as_posix()}\n"
+                )
                 saved += 1
 
                 if args.max_pairs and saved >= args.max_pairs:
@@ -337,8 +312,8 @@ def main() -> None:
         "effective_start_frame": int(effective_start_frame),
         "read_frames": int(read_count),
         "saved_pairs": int(saved),
-        "out_left": str(out_left.as_posix()),
-        "out_right": str(out_right.as_posix()),
+        "camera_names": [cam0, cam1],
+        "out_dirs_by_cam": {cam0: str(out_cam0.as_posix()), cam1: str(out_cam1.as_posix())},
         "index_csv": str(index_csv.as_posix()),
     }
     report_json.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")

@@ -19,14 +19,14 @@
 ## 1. camera_settings - 相机配置
 
 本仓库当前为 **video-only（离线 mp4）** 工作流：
-- 先用 `step1_extract_imgs_from_video.py` 抽帧生成 `images/raw/left,right/*.png`
+- 先用 `step1_extract_imgs_from_video.py` 抽帧生成 `images/raw/<cam>/*.png`（默认 cam0/cam1）
 - 再运行 Step2~Step4
 
 因此 `camera_settings` 推荐只使用 `video_stereo`。
 
 ### 选项A（推荐）: 离线视频（双视频 / 单视频左右拼接）
 
-当你已经有录制好的 mp4（例如两路 RGB 相机各录一个文件），推荐用视频抽帧脚本把视频转换成 `images/raw/left,right/*.png`，然后直接复用 Step2~Step4。
+当你已经有录制好的 mp4（例如两路 RGB 相机各录一个文件），推荐用视频抽帧脚本把视频转换成 `images/raw/<cam>/*.png`，然后直接复用 Step2~Step4。
 
 抽帧脚本：`python step1_extract_imgs_from_video.py`（详见该脚本顶部注释）。
 
@@ -37,11 +37,10 @@
 ```json
 {
   "camera_type": "video_stereo",
+  "camera_names": ["cam0", "cam1"],
   "video_mode": "two_files",
-  "video_left_path": "C:/path/to/left.mp4",
-  "video_right_path": "C:/path/to/right.mp4",
-  "rotate_left": "none",
-  "rotate_right": "none"
+  "video_paths": {"cam0": "C:/path/to/cam0.mp4", "cam1": "C:/path/to/cam1.mp4"},
+  "rotate": {"cam0": "none", "cam1": "none"}
 }
 ```
 
@@ -50,27 +49,25 @@
 ```json
 {
   "camera_type": "video_stereo",
+  "camera_names": ["cam0", "cam1"],
   "video_mode": "single_sbs",
   "video_path": "C:/path/to/stereo.mp4",
-  "sbs_layout": "rl",
-  "rotate_left": "none",
-  "rotate_right": "none"
+  "sbs_order": ["cam0", "cam1"],
+  "rotate": {"cam0": "none", "cam1": "none"}
 }
 ```
 
 **参数说明（video_stereo）**:
+- `camera_names`: 两路相机名（长度必须为 2）。`read_stereo()` 的返回顺序与其一致。
 - `video_mode`:
   - `"two_files"`: 左右各一个视频文件（默认）
   - `"single_sbs"`: 单文件左右拼接，需要中线切割
-- `video_left_path` / `video_right_path`: 左右视频路径（two_files）
+- `video_paths`: 两路视频路径映射（two_files），键名必须与 `camera_names` 一致
 - `video_path`: 拼接视频路径（single_sbs）
-- `sbs_layout`:
-  - `"lr"`: 左半是 left，右半是 right
-  - `"rl"`: 右半是 left，左半是 right（默认）
-- `rotate_left` / `rotate_right`: `none|cw90|ccw90|180`，用于修正方向
+- `sbs_order`: 左右半区对应的相机名（single_sbs），例如 `["cam0","cam1"]` 表示左半 cam0、右半 cam1
+- `rotate`: 按相机名指定 `none|cw90|ccw90|180`，用于修正方向
 
-> 注意：即使配置了 `video_stereo`，Step2~Step4 仍然默认读取 `images/*/left/*.png` 与 `images/*/right/*.png`。
-> 因此更推荐的做法仍然是用 `step1_extract_imgs_from_video.py` 先落盘成 png 数据集。
+> 注意：即使配置了 `video_stereo`，Step2~Step4 也不会直接从视频读图；仍推荐先用 `step1_extract_imgs_from_video.py` 落盘成图片数据集。
 
 ## 1.5 video_extract - Step1 抽帧参数（推荐写入 config）
 
@@ -98,11 +95,11 @@
 
 ## 1.6 image_dataset - 多相机图片数据集输入（Step2/Step3/Step4）
 
-当你的数据源不是“固定的 images/raw/left,right/”，或者你有 **3-4 路相机**，并希望 Step2/3/4 **无需手动改脚本/传参**就能自动跑完整流程时，使用该段。
+当你的数据源不是“固定的 images/raw/<cam>/”，或者你有 **3-4 路相机**，并希望 Step2/3/4 **无需手动改脚本/传参**就能自动跑完整流程时，使用该段。
 
-> 默认 `enabled=false`，保持旧工作流完全兼容。
+> 建议 `enabled=true` 并显式配置 `cameras`，避免歧义。
 
-### 最小示例（双目 left/right，等价于旧默认）
+### 最小示例（双目 cam0/cam1）
 
 ```json
 {
@@ -112,8 +109,8 @@
     "filtered_root": "images/filtered",
     "sync": {"key": "stem", "mode": "intersection"},
     "cameras": {
-      "left": {"raw_dir": "images/raw/left"},
-      "right": {"raw_dir": "images/raw/right"}
+      "cam0": {"raw_dir": "images/raw/cam0"},
+      "cam1": {"raw_dir": "images/raw/cam1"}
     }
   }
 }
@@ -148,7 +145,7 @@
   - 若某个 camera 没写 `raw_dir/raw_glob`，则会回退到 `raw_root/<cam>`
   - filtered 输出默认写到 `filtered_root/<cam>`
 
-- `cameras`：相机字典，key 就是相机名（例如 cam0/cam1/left/right）。
+- `cameras`：相机字典，key 就是相机名（例如 cam0/cam1/cam2...）。
   - `raw_dir`：目录形式（会自动扫描 png/jpg/jpeg/bmp）
   - `raw_glob`：glob 形式（支持字符串或字符串列表）
 
@@ -304,7 +301,7 @@ tag_spacing: 测量相邻两个标签边框之间的距离
   - 目的：让检测集中在“标定板可能出现的区域”，减少干扰、提升召回，并让更激进的上采样/多尺度策略在 ROI 上跑得动
   - 支持写法：
     - 统一 ROI：`"roi": [x, y, w, h]`
-    - 左右相机分别 ROI：`"roi": {"left": [x,y,w,h], "right": [x,y,w,h]}`
+    - 按相机分别 ROI：`"roi": {"cam0": [x,y,w,h], "cam1": [x,y,w,h], ...}`
 
 - `auto_roi`（可选，推荐用于“板子在晃动/位置不固定”）:
   - 目的：当固定 ROI 不可靠时，自动用“两阶段”检测先定位标定板区域，再在该 ROI 上做主检测（可叠加 multiscale/上采样/refine）。
@@ -365,8 +362,7 @@ Step5 需要一批“标定板固定安装在底盘坐标系中”的图片（�
 - 底盘在世界系的位姿：$W\_T\_B$（Base -> World）
 - 某个参考相机在世界系的位姿：$W\_T\_{C\_ref}$（Cam_ref -> World）
 - Step4 相机间外参（用于传播到其它相机）：
-  - `results/multi_camera_extrinsics.json`（多相机 pose graph），或
-  - `results/stereo_extrinsics.json`（双目）
+  - `results/multi_camera_extrinsics.json`（多相机 pose graph）
 
 核心公式（本仓库约定 `A_T_B` 表示 B->A）：
 

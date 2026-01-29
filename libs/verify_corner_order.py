@@ -24,7 +24,7 @@
 
 import cv2
 import numpy as np
-import glob
+from pathlib import Path
 from utils import (
     load_config,
     create_apriltag_board,
@@ -44,18 +44,38 @@ def verify_corner_order():
     obj_points_all, tag_ids = create_apriltag_board(config)
     aruco_dict = get_aruco_dict(config["apriltag_board"]["family"])
 
-    # 获取测试图像
-    left_images = sorted(glob.glob("images/filtered/left/*.png"))
-    if len(left_images) == 0:
-        print("❌ 错误: 未找到图像")
+    # 获取测试图像：从 images/filtered/<cam>/ 下自动选择一张
+    exts = {".png", ".jpg", ".jpeg", ".bmp"}
+    filtered_root = Path("images/filtered")
+    test_images: list[Path] = []
+    test_cam: str = ""
+    if filtered_root.exists():
+        for cam_dir in sorted(filtered_root.iterdir()):
+            if not cam_dir.is_dir():
+                continue
+            name = cam_dir.name
+            if name.startswith(".") or name.startswith("_") or name.startswith("__"):
+                continue
+            imgs = [p for p in sorted(cam_dir.iterdir()) if p.is_file() and p.suffix.lower() in exts]
+            if len(imgs) > 0:
+                test_images = imgs
+                test_cam = name
+                break
+
+    if len(test_images) == 0:
+        print("错误: 未找到任何图像（期望 images/filtered/<cam>/*.(png|jpg|jpeg|bmp)）")
         return False
 
     # 使用第二张图像（通常检测效果较好）
-    test_image = left_images[min(1, len(left_images) - 1)]
-    print(f"\n📷 测试图像: {test_image}")
+    test_image = test_images[min(1, len(test_images) - 1)]
+    print(f"\n测试相机: {test_cam}")
+    print(f"测试图像: {test_image}")
 
     # 读取并检测
-    img = cv2.imread(test_image)
+    img = cv2.imread(str(test_image))
+    if img is None:
+        print(f"错误: 无法读取图像: {test_image}")
+        return False
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     detector_params = cv2.aruco.DetectorParameters()
@@ -64,7 +84,7 @@ def verify_corner_order():
         gray, aruco_dict, detector_params, use_multiscale=True
     )
 
-    if ids is None or len(ids) == 0:
+    if corners is None or ids is None or len(ids) == 0:
         print("❌ 未检测到任何标签")
         return False
 

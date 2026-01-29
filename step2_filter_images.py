@@ -22,13 +22,11 @@ Step 2: 图像质量检查和筛选 - AprilTag 标定板
     python step2_filter_images.py
 
 输入:
-    - images/raw/left/*.png: 原始左相机图像
-    - images/raw/right/*.png: 原始右相机图像
-    - config/apriltag_config.json: 配置文件（min_tags_for_pose）
+    - images/raw/<cam>/*.(png|jpg|jpeg|bmp): 原始相机图像（相机列表来自 config.image_dataset.cameras 或目录扫描）
+    - config/apriltag_config.json: 配置文件（min_tags_for_pose 等）
 
 输出:
-    - images/filtered/left/*.png: 筛选后的左相机图像
-    - images/filtered/right/*.png: 筛选后的右相机图像
+    - images/filtered/<cam>/*.(png|jpg|jpeg|bmp): 筛选后的相机图像
     - results/filter_report.json: 详细筛选报告
 
 重新筛选:
@@ -42,18 +40,19 @@ Step 2: 图像质量检查和筛选 - AprilTag 标定板
 """
 
 import argparse
-import cv2
-import numpy as np
 import json
 import os
-import glob
 import shutil
+from dataclasses import dataclass
 from datetime import datetime
-from typing import cast, Any, Dict, Optional, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, cast
+
+import cv2
+import numpy as np
 from utils import (
     load_config,
     get_aruco_dict,
-    detect_apriltag_corners,
     create_apriltag_board,
     create_opencv_aruco_board,
     get_detection_settings,
@@ -66,7 +65,16 @@ from utils import (
     get_camera_raw_images,
     get_camera_filtered_dir,
 )
-from pathlib import Path
+
+from libs.apriltag_perf.cache import CacheConfig
+from libs.apriltag_perf.prefilter import PrefilterConfig
+from libs.apriltag_perf.scan import (
+    ScanLimits,
+    ScanOrder,
+    iter_scan_parallel_ordered,
+    iter_scan_sequential,
+)
+from libs.apriltag_perf.service import CachedAprilTagDetector
 
 
 # 默认尽量安静：只输出关键进度和汇总；需要逐张输出用 --verbose。
@@ -77,6 +85,142 @@ def _vprint(*args, **kwargs) -> None:
     """Verbose print (guarded by VERBOSE)."""
     if VERBOSE:
         print(*args, **kwargs)
+
+
+@dataclass(frozen=True)
+class _Step2Result:
+    """Step2 单张图片的筛选结果。
+
+    说明：
+    - 为了并行效率，worker 只返回“很小的摘要信息”。
+    - 若需要可视化/后续使用 corners/ids，会在主进程用同一 cache 再读一次（大概率命中缓存）。
+    """
+
+    image_path: str
+    valid: bool
+    n_tags: int
+    status: int
+    from_cache: bool
+    elapsed_ms: float
+
+
+def _percentile(values: List[float], q: float) -> float:
+    if len(values) == 0:
+        return 0.0
+    arr = np.asarray(values, dtype=np.float64)
+    return float(np.percentile(arr, q))
+
+
+def _summarize_step2_results(results: List[_Step2Result]) -> Dict[str, Any]:
+    total = int(len(results))
+    valid = int(sum(1 for r in results if bool(r.valid)))
+    cache_hit = int(sum(1 for r in results if bool(r.from_cache)))
+    prefilter_skipped = int(sum(1 for r in results if int(r.status) == 2))
+    error = int(sum(1 for r in results if int(r.status) == 1))
+
+    detect_ms = [float(r.elapsed_ms) for r in results if (not bool(r.from_cache)) and float(r.elapsed_ms) > 0]
+    mean_ms = float(np.mean(detect_ms)) if len(detect_ms) > 0 else 0.0
+    p95_ms = _percentile(detect_ms, 95.0) if len(detect_ms) > 0 else 0.0
+
+    return {
+        "total": total,
+        "valid": valid,
+        "cache_hit": cache_hit,
+        "cache_miss": int(total - cache_hit),
+        "prefilter_skipped": prefilter_skipped,
+        "error": error,
+        "mean_detect_ms": float(mean_ms),
+        "p95_detect_ms": float(p95_ms),
+    }
+
+
+def _build_algo_key(config: Dict[str, Any], *, profile: str) -> Dict[str, Any]:
+    """构建用于缓存的 algo_key（必须可 JSON 序列化）。"""
+
+    det_cfg = (config or {}).get("calibration_settings", {}).get("detection", {})
+    board_cfg = (config or {}).get("apriltag_board", {})
+    corner_ref = (config or {}).get("calibration_settings", {}).get("corner_refinement")
+
+    return {
+        "opencv_version": str(getattr(cv2, "__version__", "unknown")),
+        "apriltag_family": str(board_cfg.get("family")),
+        "corner_refinement": str(corner_ref),
+        "profile": str(profile),
+        "detection": det_cfg,
+        "stage": "step2_filter",
+    }
+
+
+_G_STEP2_DET: Optional[CachedAprilTagDetector] = None
+_G_STEP2_MIN_TAGS: int = 0
+
+
+def _init_step2_worker(state: Dict[str, Any]) -> None:
+    """多进程 worker 初始化：在子进程内创建检测器（Windows spawn 安全）。"""
+
+    global _G_STEP2_DET, _G_STEP2_MIN_TAGS
+
+    config = state["config"]
+    profile = str(state["profile"])
+    family = str(state["family"])
+
+    aruco_dict = get_aruco_dict(family)
+    obj_points_mm = np.asarray(state["obj_points_mm"], dtype=np.float32)
+    tag_ids = [int(x) for x in state["tag_ids"]]
+    board = create_opencv_aruco_board(obj_points_mm, tag_ids, aruco_dict)
+    detector_params = create_detector_params(config)
+
+    algo_key = _build_algo_key(config, profile=profile)
+    cache_cfg = CacheConfig(
+        enabled=bool(state["cache"]["enabled"]),
+        cache_dir=str(state["cache"]["cache_dir"]),
+        force_redetect=bool(state["cache"]["force_redetect"]),
+    )
+    prefilter_cfg = PrefilterConfig(enabled=bool(state["prefilter"]["enabled"]))
+    auto_roi_cfg = state.get("auto_roi_cfg") or {}
+
+    _G_STEP2_DET = CachedAprilTagDetector(
+        aruco_dict=aruco_dict,
+        detector_params=detector_params,
+        algo_key=algo_key,
+        use_multiscale=bool(state["use_multiscale"]),
+        opencv_refine=bool(state["opencv_refine"]),
+        board=board,
+        roi=tuple(state["roi"]) if state.get("roi") is not None else None,
+        auto_roi=bool(auto_roi_cfg.get("enabled", False)),
+        auto_roi_pre_scale=float(auto_roi_cfg.get("pre_scale", 0.5)),
+        auto_roi_min_tags=int(auto_roi_cfg.get("min_tags", 1)),
+        auto_roi_margin=float(auto_roi_cfg.get("margin", 0.25)),
+        cache_cfg=cache_cfg,
+        prefilter_cfg=prefilter_cfg,
+    )
+    _G_STEP2_MIN_TAGS = int(state["min_tags"])
+
+
+def _step2_worker(image_path: str) -> _Step2Result:
+    global _G_STEP2_DET, _G_STEP2_MIN_TAGS
+    if _G_STEP2_DET is None:
+        return _Step2Result(
+            image_path=str(image_path),
+            valid=False,
+            n_tags=0,
+            status=1,
+            from_cache=False,
+            elapsed_ms=0.0,
+        )
+
+    res = _G_STEP2_DET.detect_path(Path(str(image_path)))
+    ids = np.asarray(res.ids) if res.ids is not None else np.zeros((0, 1), dtype=np.int32)
+    n_tags = int(ids.shape[0])
+    valid = bool(int(res.status) == 0 and n_tags >= int(_G_STEP2_MIN_TAGS))
+    return _Step2Result(
+        image_path=str(image_path),
+        valid=valid,
+        n_tags=n_tags,
+        status=int(res.status),
+        from_cache=bool(res.from_cache),
+        elapsed_ms=float(res.elapsed_ms),
+    )
 
 
 def save_detection_visualization(
@@ -168,65 +312,40 @@ def save_detection_visualization(
     return str(output_path)
 
 
-def check_image_quality(
-    img_path,
-    aruco_dict,
-    detector_params,
-    min_tags,
+def _make_detector_for_camera(
     *,
-    use_multiscale: bool,
-    opencv_refine: bool,
-    board,
-    roi=None,
-    auto_roi_cfg: Optional[Dict[str, Any]] = None,
-):
-    """
-    检查单张图像的质量
+    config: Dict[str, Any],
+    profile: str,
+    roi: Optional[Tuple[int, int, int, int]],
+    cache_cfg: CacheConfig,
+    prefilter_cfg: PrefilterConfig,
+) -> CachedAprilTagDetector:
+    """在主进程创建一个 detector（用于可视化/二次取 corners/ids）。"""
 
-    检查标准：
-        - 成功读取图像
-        - 检测到的 AprilTag 标签数量 >= min_tags
+    board_cfg = config["apriltag_board"]
+    aruco_dict = get_aruco_dict(board_cfg["family"])
+    obj_points_mm, tag_ids = create_apriltag_board(config)
+    board = create_opencv_aruco_board(obj_points_mm, tag_ids, aruco_dict)
+    detector_params = create_detector_params(config)
 
-    Args:
-        img_path: 图像文件路径
-        aruco_dict: ArUco 字典对象
-        detector_params: 检测器参数
-        min_tags: 最少需要检测到的标签数量
-        use_multiscale: 是否使用多尺度检测（推荐）
+    use_multiscale, opencv_refine = get_detection_settings(config)
+    auto_roi_cfg = get_detection_auto_roi(config)
 
-    Returns:
-        tuple: (is_valid, num_tags, corners, ids)
-            is_valid: bool, 图像是否合格
-            num_tags: int, 检测到的标签数量
-            corners: list, 检测到的角点列表
-            ids: np.ndarray, 检测到的标签ID数组
-    """
-    img = cv2.imread(img_path)
-    if img is None:
-        return False, 0, None, None
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # 检测 AprilTag（使用多尺度检测提高准确率）
-    auto_roi_cfg = auto_roi_cfg or {}
-    corners, ids = detect_apriltag_corners(
-        gray,
-        aruco_dict,
-        detector_params,
-        use_multiscale=use_multiscale,
-        opencv_refine=opencv_refine,
+    return CachedAprilTagDetector(
+        aruco_dict=aruco_dict,
+        detector_params=detector_params,
+        algo_key=_build_algo_key(config, profile=profile),
+        use_multiscale=bool(use_multiscale),
+        opencv_refine=bool(opencv_refine),
         board=board,
         roi=roi,
         auto_roi=bool(auto_roi_cfg.get("enabled", False)),
         auto_roi_pre_scale=float(auto_roi_cfg.get("pre_scale", 0.5)),
         auto_roi_min_tags=int(auto_roi_cfg.get("min_tags", 1)),
         auto_roi_margin=float(auto_roi_cfg.get("margin", 0.25)),
+        cache_cfg=cache_cfg,
+        prefilter_cfg=prefilter_cfg,
     )
-
-    num_tags = 0 if ids is None else len(ids)
-    is_valid = num_tags >= min_tags
-
-    return is_valid, num_tags, corners, ids
 
 
 def visualize_detection(img_path, corners, ids, is_valid):
@@ -290,20 +409,97 @@ def main():
     )
     # parser.add_argument("--verbose", action="store_true", help="输出每对图像的筛选结果（会很刷屏）")
     parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="输出更多逐帧过程信息（会刷屏）。",
+    )
+    parser.add_argument(
         "--print_every",
         type=int,
         default=50,
-        help="非 verbose 模式下，每 N 对打印一次进度（0=不打印中间进度；默认 50）",
+        help="非 verbose 模式下，每 N 张/对打印一次进度（0=不打印中间进度；默认 50）",
     )
     parser.add_argument(
         "--no_vis",
         action="store_true",
         help="不保存检测可视化图（更快、更省空间；仍会保存 filtered 图和 report）",
     )
+
+    # 性能优先：流式扫描/早停/并行/缓存/预筛选
+    parser.add_argument(
+        "--max_valid_images",
+        type=int,
+        default=0,
+        help="每个相机最多保留多少张有效图像（0=使用 config.calibration_settings.max_images）。",
+    )
+    parser.add_argument(
+        "--max_total_images",
+        type=int,
+        default=0,
+        help="每个相机最多尝试检测多少张候选图像（0=不限制）。",
+    )
+    parser.add_argument(
+        "--max_detect_seconds",
+        type=float,
+        default=0.0,
+        help="每个相机检测总耗时上限（秒，0=不限制）。",
+    )
+    parser.add_argument(
+        "--scan_strategy",
+        type=str,
+        default="sequential",
+        choices=["sequential", "random", "uniform"],
+        help="候选图像扫描策略：sequential/random/uniform（默认 sequential）。",
+    )
+    parser.add_argument(
+        "--scan_seed",
+        type=int,
+        default=0,
+        help="random 策略的随机种子（保证可复现）。",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help="多进程 worker 数（0=自动=CPU核数；1=禁用并行）。",
+    )
+    parser.add_argument(
+        "--prefetch",
+        type=int,
+        default=0,
+        help="并行时的预提交任务数（0=自动）。",
+    )
+    parser.add_argument(
+        "--cache_dir",
+        type=str,
+        default="cache/apriltag_detection",
+        help="检测缓存目录（默认 cache/apriltag_detection）。",
+    )
+    parser.add_argument(
+        "--no_cache",
+        action="store_true",
+        help="禁用检测缓存（会显著变慢）。",
+    )
+    parser.add_argument(
+        "--force_redetect",
+        action="store_true",
+        help="忽略缓存强制重新检测（用于调参/排查）。",
+    )
+    parser.add_argument(
+        "--prefilter",
+        action="store_true",
+        help="启用廉价预筛选（可能过滤掉明显无效/过暗/过曝/模糊帧，减少 detector 调用）。",
+    )
+    parser.add_argument(
+        "--min_tags",
+        type=int,
+        default=0,
+        help="覆盖 config.calibration_settings.min_tags_for_pose（0=不覆盖）。",
+    )
     args = parser.parse_args()
 
-    # global VERBOSE
-    # VERBOSE = bool(args.verbose)
+    global VERBOSE
+    VERBOSE = bool(args.verbose)
 
     print("=" * 60)
     print("Step 2: AprilTag 图像质量检查和筛选")
@@ -314,8 +510,9 @@ def main():
     board_cfg = config["apriltag_board"]
     calib_cfg = config["calibration_settings"]
 
-    ds = get_image_dataset(config)
-    use_dataset = bool(ds.get("enabled", False))
+    # 统一数据集入口：本仓库不再支持固定的 left/right 目录约定。
+    # 相机列表来自 config.image_dataset.cameras；若未配置则尝试扫描 images/raw/<cam>/。
+    use_dataset = True
 
     use_multiscale, opencv_refine = get_detection_settings(config)
     profile = get_detection_profile(config)
@@ -326,13 +523,14 @@ def main():
     print(f"  - 标签排列: {board_cfg['tags_x']} x {board_cfg['tags_y']}")
     print(f"  - 标签尺寸: {board_cfg['tag_size']} mm")
     print(f"  - 标签间距: {board_cfg['tag_spacing']} mm")
-    print(f"  - 最少检测标签数: {calib_cfg['min_tags_for_pose']}")
+    min_tags_cfg = int(calib_cfg["min_tags_for_pose"])
+    min_tags = int(args.min_tags) if int(args.min_tags) > 0 else int(min_tags_cfg)
+    print(f"  - 最少检测标签数: {min_tags}")
     print(f"  - use_multiscale: {use_multiscale}")
     print(f"  - opencv_refine: {opencv_refine}")
     print(f"  - detection profile: {profile}")
-    if use_dataset:
-        cams_preview = get_dataset_cameras(config, allow_scan=True, fallback_stereo=True)
-        print(f"  - image_dataset: enabled (cameras={cams_preview})")
+    cams_preview = get_dataset_cameras(config, allow_scan=True)
+    print(f"  - cameras: {cams_preview}")
     if bool(auto_roi_cfg.get("enabled", False)):
         print(
             "  - auto_roi: enabled "
@@ -341,12 +539,30 @@ def main():
 
     os.makedirs("results", exist_ok=True)
 
-    # === 新流程：按 config.image_dataset 自动处理多相机 ===
+    max_valid_images = int(args.max_valid_images) if int(args.max_valid_images) > 0 else int(calib_cfg.get("max_images", 100))
+    limits = ScanLimits(
+        target_valid=int(max_valid_images),
+        max_total=int(args.max_total_images),
+        max_seconds=float(args.max_detect_seconds),
+    )
+    order = ScanOrder(strategy=str(args.scan_strategy), seed=int(args.scan_seed))
+    workers = int(args.workers) if int(args.workers) > 0 else int(os.cpu_count() or 4)
+    if workers <= 0:
+        workers = 1
+
+    cache_cfg = CacheConfig(
+        enabled=(not bool(args.no_cache)),
+        cache_dir=str(args.cache_dir),
+        force_redetect=bool(args.force_redetect),
+    )
+    prefilter_cfg = PrefilterConfig(enabled=bool(args.prefilter))
+
+    # === 统一流程：按 config.image_dataset 自动处理多相机 ===
     if use_dataset:
-        cameras = get_dataset_cameras(config, allow_scan=True, fallback_stereo=False)
+        cameras = get_dataset_cameras(config, allow_scan=True)
         if len(cameras) == 0:
-            print("\n错误: image_dataset.enabled=true，但未找到 cameras。")
-            print("请在 config.image_dataset.cameras 中配置相机名与 raw_dir/raw_glob，或把原始图片放到 raw_root/<cam>/ 下。")
+            print("\n错误: 未找到任何相机。")
+            print("请在 config.image_dataset.cameras 中配置相机名与 raw_glob，或把原始图片放到 images/raw/<cam>/ 下。")
             return
 
         print(f"\n相机列表: {cameras}")
@@ -378,13 +594,6 @@ def main():
             for cam in cameras:
                 (detection_dir / cam).mkdir(parents=True, exist_ok=True)
 
-        # 获取 ArUco 字典 / Board / 检测器参数
-        aruco_dict = get_aruco_dict(board_cfg["family"])
-        obj_points_mm, tag_ids = create_apriltag_board(config)
-        board = create_opencv_aruco_board(obj_points_mm, tag_ids, aruco_dict)
-        detector_params = create_detector_params(config)
-
-        min_tags = int(calib_cfg["min_tags_for_pose"])
         expected_tags = int(board_cfg["tags_x"]) * int(board_cfg["tags_y"])
 
         # 逐相机筛选
@@ -420,23 +629,77 @@ def main():
             if roi is not None:
                 print(f"  - ROI: {roi}")
 
-            valid_count = 0
-            invalid_count = 0
+            # 并行 worker 初始化状态（必须可 pickle）
+            obj_points_mm, tag_ids = create_apriltag_board(config)
+            init_state = {
+                "config": config,
+                "profile": profile,
+                "family": str(board_cfg["family"]),
+                "use_multiscale": bool(use_multiscale),
+                "opencv_refine": bool(opencv_refine),
+                "obj_points_mm": np.asarray(obj_points_mm, dtype=np.float32),
+                "tag_ids": [int(x) for x in tag_ids],
+                "roi": list(roi) if roi is not None else None,
+                "auto_roi_cfg": auto_roi_cfg,
+                "min_tags": int(min_tags),
+                "cache": {
+                    "enabled": bool(cache_cfg.enabled),
+                    "cache_dir": str(cache_cfg.cache_dir),
+                    "force_redetect": bool(cache_cfg.force_redetect),
+                },
+                "prefilter": {"enabled": bool(prefilter_cfg.enabled)},
+            }
 
-            for idx, img_path in enumerate(raw_images, 1):
-                ok, n_tags, corners, ids = check_image_quality(
-                    str(img_path),
-                    aruco_dict,
-                    detector_params,
-                    min_tags,
-                    use_multiscale=use_multiscale,
-                    opencv_refine=opencv_refine,
-                    board=board,
-                    roi=roi,
-                    auto_roi_cfg=auto_roi_cfg,
+            items = [str(p) for p in raw_images]
+            if int(workers) > 1:
+                out, counters = iter_scan_parallel_ordered(
+                    items,
+                    worker_fn=_step2_worker,
+                    is_valid_fn=lambda r: bool(r.valid),
+                    limits=limits,
+                    order=order,
+                    max_workers=int(workers),
+                    prefetch=int(args.prefetch),
+                    initializer=_init_step2_worker,
+                    initargs=(init_state,),
+                )
+            else:
+                # 单进程：直接初始化 detector 并用 scan 框架早停
+                _init_step2_worker(init_state)
+                out, counters = iter_scan_sequential(
+                    items,
+                    worker_fn=_step2_worker,
+                    is_valid_fn=lambda r: bool(r.valid),
+                    limits=limits,
+                    order=order,
                 )
 
-                if ok:
+            results = list(out)
+            summary = _summarize_step2_results(results)
+            print(
+                f"  扫描: submitted={counters.submitted} completed={counters.completed} valid={counters.valid} "
+                f"(elapsed={counters.elapsed_s:.2f}s, strategy={order.strategy}, workers={workers})"
+            )
+            print(
+                "  统计: "
+                f"cache_hit={summary['cache_hit']} prefilter_skipped={summary['prefilter_skipped']} error={summary['error']} "
+                f"mean_detect_ms={summary['mean_detect_ms']:.1f} p95_detect_ms={summary['p95_detect_ms']:.1f}"
+            )
+
+            # 主进程 detector：用于可视化时从 cache 取 corners/ids
+            viz_det = _make_detector_for_camera(
+                config=config,
+                profile=profile,
+                roi=roi,
+                cache_cfg=cache_cfg,
+                prefilter_cfg=prefilter_cfg,
+            )
+
+            valid_count = 0
+            invalid_count = 0
+            for idx, r in enumerate(results, 1):
+                img_path = Path(r.image_path)
+                if bool(r.valid):
                     valid_count += 1
                     out_path = cam_to_filtered_dir[cam] / img_path.name
                     try:
@@ -447,7 +710,6 @@ def main():
                         if img is not None:
                             cv2.imwrite(str(out_path), img)
 
-                    # 统计 frame_key 共视
                     key = img_path.stem
                     lst = frame_key_to_valid_cams.get(key, [])
                     if cam not in lst:
@@ -455,24 +717,38 @@ def main():
                         frame_key_to_valid_cams[key] = lst
 
                     if detection_dir is not None:
+                        det_res = viz_det.detect_path(img_path)
                         save_detection_visualization(
                             str(img_path),
-                            corners,
-                            ids,
+                            det_res.corners,
+                            det_res.ids,
                             expected_tags,
                             str(detection_dir / cam),
                         )
                 else:
                     invalid_count += 1
 
-                if (not VERBOSE) and args.print_every and (idx % int(args.print_every) == 0):
-                    print(f"  进度: {idx}/{len(raw_images)} | 合格: {valid_count} | 不合格: {invalid_count}")
+                if (not VERBOSE) and int(args.print_every) > 0 and (idx % int(args.print_every) == 0):
+                    print(f"  进度: {idx}/{len(results)} | 合格: {valid_count} | 不合格: {invalid_count}")
 
             filter_report["per_camera"][cam] = {
                 "raw": int(len(raw_images)),
                 "valid": int(valid_count),
                 "invalid": int(invalid_count),
                 "filtered_dir": str(cam_to_filtered_dir[cam].as_posix()),
+                "scan": {
+                    "limits": {
+                        "target_valid": int(limits.target_valid),
+                        "max_total": int(limits.max_total),
+                        "max_seconds": float(limits.max_seconds),
+                    },
+                    "order": {"strategy": str(order.strategy), "seed": int(order.seed)},
+                    "workers": int(workers),
+                    "submitted": int(counters.submitted),
+                    "completed": int(counters.completed),
+                    "elapsed_s": float(counters.elapsed_s),
+                },
+                "perf": summary,
             }
             print(f"  ✓ {cam}: 合格 {valid_count} / {len(raw_images)}")
 
@@ -499,264 +775,6 @@ def main():
         print(f"  - 所有相机同帧合格: {n_frames_all}")
         print("\n下一步: 运行 python step3_intrinsic_apriltag.py（会按 config 自动处理多相机）")
         return
-
-    # === 旧流程：固定双目 left/right ===
-
-    # 检查原始图像目录
-    if not os.path.exists("images/raw/left") or not os.path.exists("images/raw/right"):
-        print("\n错误: 未找到原始图像目录 images/raw/")
-        print("请先准备 images/raw/left 与 images/raw/right 下的 png 图像对")
-        print("（离线视频推荐：python step1_extract_imgs_from_video.py --video_left ... --video_right ...）")
-        return
-
-    left_roi = get_detection_roi(config, camera="left")
-    right_roi = get_detection_roi(config, camera="right")
-
-    # 创建输出目录并清空旧文件
-    filtered_left_dir = Path("images/filtered/left")
-    filtered_right_dir = Path("images/filtered/right")
-
-    # 清空筛选后的图像目录
-    if filtered_left_dir.exists():
-        for file in filtered_left_dir.glob("*"):
-            if file.is_file():
-                file.unlink()
-    filtered_left_dir.mkdir(parents=True, exist_ok=True)
-
-    if filtered_right_dir.exists():
-        for file in filtered_right_dir.glob("*"):
-            if file.is_file():
-                file.unlink()
-    filtered_right_dir.mkdir(parents=True, exist_ok=True)
-
-    detection_dir = None
-    if not args.no_vis:
-        # 清空并创建检测可视化目录（分左右相机）
-        detection_dir = Path("results/visualization/step2_filtering")
-        if detection_dir.exists():
-            # 删除目录中的所有文件
-            for file in detection_dir.glob("**/*"):
-                if file.is_file():
-                    file.unlink()
-        # 创建 left 和 right 子目录
-        (detection_dir / "left").mkdir(parents=True, exist_ok=True)
-        (detection_dir / "right").mkdir(parents=True, exist_ok=True)
-
-    # 获取 ArUco 字典
-    aruco_dict = get_aruco_dict(board_cfg["family"])
-
-    # 构建 OpenCV Board（用于 refineDetectedMarkers）
-    obj_points_mm, tag_ids = create_apriltag_board(config)
-    board = create_opencv_aruco_board(obj_points_mm, tag_ids, aruco_dict)
-
-    # 设置检测器参数（支持按 profile 针对小Tag调参）
-    detector_params = create_detector_params(config)
-
-    min_tags = calib_cfg["min_tags_for_pose"]
-
-    # 获取原始图像文件
-    left_images = sorted(glob.glob("images/raw/left/*.png"))
-    right_images = sorted(glob.glob("images/raw/right/*.png"))
-
-    print(f"\n找到原始图像:")
-    print(f"  - 左相机: {len(left_images)} 张")
-    print(f"  - 右相机: {len(right_images)} 张")
-
-    if len(left_images) == 0 or len(right_images) == 0:
-        print("\n错误: 没有找到原始图像！")
-        return
-
-    if len(left_images) != len(right_images):
-        print(f"\n警告: 左右图像数量不匹配！")
-
-    # 筛选图像
-    print("\n开始筛选图像...")
-    print("-" * 60)
-
-    valid_pairs = []
-    invalid_pairs = []
-    filter_report: Dict[str, Any] = {
-        "timestamp": datetime.now().isoformat(),
-        "total_pairs": min(len(left_images), len(right_images)),
-        "valid_pairs": 0,
-        "invalid_pairs": 0,
-        "details": [],
-    }
-
-    # 遍历图像对
-    processed = 0
-    total_pairs = min(len(left_images), len(right_images))
-    for left_path, right_path in zip(left_images, right_images):
-        processed += 1
-        left_filename = os.path.basename(left_path)
-        right_filename = os.path.basename(right_path)
-
-        # 检查左图像（使用多尺度检测）
-        left_valid, left_tags, left_corners, left_ids = check_image_quality(
-            left_path,
-            aruco_dict,
-            detector_params,
-            min_tags,
-            use_multiscale=use_multiscale,
-            opencv_refine=opencv_refine,
-            board=board,
-            roi=left_roi,
-            auto_roi_cfg=auto_roi_cfg,
-        )
-
-        # 检查右图像（使用多尺度检测）
-        right_valid, right_tags, right_corners, right_ids = check_image_quality(
-            right_path,
-            aruco_dict,
-            detector_params,
-            min_tags,
-            use_multiscale=use_multiscale,
-            opencv_refine=opencv_refine,
-            board=board,
-            roi=right_roi,
-            auto_roi_cfg=auto_roi_cfg,
-        )
-
-        # 判断是否合格
-        # step2 主要是以为了标定内参，所以要保证图片计量充满整个相机视角，不追求极限合格率
-        # 因此只要左右任意一张图像合格即可
-        is_pair_valid = left_valid or right_valid
-
-        # 记录详情
-        detail = {
-            "left_file": left_filename,
-            "right_file": right_filename,
-            "left_tags": left_tags,
-            "right_tags": right_tags,
-            "is_valid": is_pair_valid,
-        }
-
-        if is_pair_valid:
-            valid_pairs.append(
-                (
-                    left_path,
-                    right_path,
-                    left_corners,
-                    left_ids,
-                    right_corners,
-                    right_ids,
-                )
-            )
-            filter_report["valid_pairs"] = cast(int, filter_report["valid_pairs"]) + 1
-            _vprint(f"✓ {left_filename}: 左={left_tags} tags, 右={right_tags} tags")
-        else:
-            invalid_pairs.append((left_path, right_path))
-            filter_report["invalid_pairs"] = cast(int, filter_report["invalid_pairs"]) + 1
-            status = []
-            if not left_valid:
-                status.append(f"左={left_tags}/{min_tags}")
-            if not right_valid:
-                status.append(f"右={right_tags}/{min_tags}")
-            _vprint(f"✗ {left_filename}: {', '.join(status)}")
-
-        if (not VERBOSE) and args.print_every and (processed % int(args.print_every) == 0):
-            v = cast(int, filter_report["valid_pairs"])
-            inv = cast(int, filter_report["invalid_pairs"])
-            print(f"进度: {processed}/{total_pairs} | 合格: {v} | 不合格: {inv}")
-
-        details_list = filter_report["details"]
-        assert isinstance(details_list, list)
-        details_list.append(detail)
-
-    # 保存合格图像
-    print("\n保存合格图像...")
-
-    # 获取期望的标签数量
-    expected_tags = board_cfg["tags_x"] * board_cfg["tags_y"]
-
-    for i, (
-        left_path,
-        right_path,
-        left_corners,
-        left_ids,
-        right_corners,
-        right_ids,
-    ) in enumerate(valid_pairs, 1):
-        # 读取图像
-        left_img = cv2.imread(left_path)
-        right_img = cv2.imread(right_path)
-        if left_img is None or right_img is None:
-            # 理论上不应该发生（前面已成功读取/检测），但这里做个保险。
-            _vprint(f"警告: 无法读取有效图像对，跳过保存: {left_path}, {right_path}")
-            continue
-
-        # 使用原始文件名
-        left_filename = os.path.basename(left_path)
-        right_filename = os.path.basename(right_path)
-
-        # 保存到筛选目录
-        left_output = f"images/filtered/left/{left_filename}"
-        right_output = f"images/filtered/right/{right_filename}"
-
-        cv2.imwrite(left_output, left_img)
-        cv2.imwrite(right_output, right_img)
-
-        if detection_dir is not None:
-            # 保存检测可视化图像（用于人工检查，分左右相机）
-            save_detection_visualization(
-                left_path,
-                left_corners,
-                left_ids,
-                expected_tags,
-                str(detection_dir / "left"),
-            )
-            save_detection_visualization(
-                right_path,
-                right_corners,
-                right_ids,
-                expected_tags,
-                str(detection_dir / "right"),
-            )
-
-    print(f"  ✓ 已保存 {len(valid_pairs)} 组合格图像")
-    if detection_dir is not None:
-        print(
-            f"  ✓ 已保存 {len(valid_pairs) * 2} 张检测可视化图像到 {str(detection_dir)}/"
-        )
-    else:
-        print("  - 已跳过检测可视化图（--no_vis）")
-
-    # 保存筛选报告
-    with open("results/filter_report.json", "w") as f:
-        json.dump(filter_report, f, indent=2)
-
-    print("\n  ✓ 已保存筛选报告: results/filter_report.json")
-
-    # 显示统计
-    print("\n" + "=" * 60)
-    print("图像筛选完成！")
-    print("=" * 60)
-    print(f"\n统计:")
-    print(f"  - 总图像对: {filter_report['total_pairs']}")
-    valid_count = cast(int, filter_report['valid_pairs'])
-    invalid_count = cast(int, filter_report['invalid_pairs'])
-    total_count = cast(int, filter_report['total_pairs'])
-    print(
-        f"  - 合格: {valid_count} ({valid_count / total_count * 100:.1f}%)"
-    )
-    print(
-        f"  - 不合格: {invalid_count} ({invalid_count / total_count * 100:.1f}%)"
-    )
-
-    if valid_count < 10:
-        print(f"\n⚠ 警告: 合格图像数量较少 ({valid_count} < 10)")
-        print("  建议:")
-        print("  - 重新拍摄更多图像")
-        print("  - 确保标定板清晰可见")
-        print("  - 改善光照条件")
-    else:
-        print(f"\n✓ 合格图像数量充足，可以进行标定")
-
-    print(f"\n筛选后的图像位置:")
-    print(f"  - images/filtered/left/")
-    print(f"  - images/filtered/right/")
-
-    print("\n下一步: 运行 python step3_intrinsic_apriltag.py")
 
 
 if __name__ == "__main__":

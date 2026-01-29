@@ -1,0 +1,159 @@
+{
+  "timestamp": "2026-01-29T21:53:42.180921",
+  "image_root": "images/filtered",
+  "cameras": [
+    "cam0",
+    "cam1",
+    "cam2",
+    "cam3"
+  ],
+  "profile": "small_tags",
+  "min_tags": 1,
+  "scan": {
+    "strategy": "uniform",
+    "seed": 0,
+    "limits": {
+      "target_valid": 70,
+      "max_total": 135,
+      "max_seconds": 0.0
+    },
+    "counters": {
+      "total_candidates": 135,
+      "submitted": 117,
+      "completed": 70,
+      "valid": 70,
+      "elapsed_s": 6.784657800002606
+    },
+    "stop_reason": "target_valid_frames"
+  },
+  "perf": {
+    "workers": 24,
+    "prefetch": 0,
+    "cache": {
+      "enabled": true,
+      "cache_dir": "cache/apriltag_detection",
+      "force_redetect": false
+    },
+    "prefilter": {
+      "enabled": false
+    }
+  },
+  "detector_calls": {
+    "total_images": 165,
+    "cache_hit": 165,
+    "cache_miss": 0,
+    "prefilter_skipped": 0,
+    "error": 0,
+    "detect_ms_sum": 0.0
+  },
+  "pnp": {
+    "ok": 165,
+    "fail": 0
+  },
+  "filters": {
+    "max_reproj_mean_px": 0.0,
+    "poses_dropped_by_reproj": 0
+  },
+  "results": {
+    "poses_frames": 70,
+    "edges": 120
+  },
+  "frame_sync": {
+    "per_cam_frames": {
+      "cam0": 100,
+      "cam1": 100,
+      "cam2": 100,
+      "cam3": 100
+    },
+    "candidate_frame_keys_ge2": 135,
+    "pair_intersections": {
+      "cam0__cam1": {
+        "n": 69,
+        "sample": [
+          "seq000060_f61",
+          "seq000061_f62",
+          "seq000062_f63",
+          "seq000063_f64",
+          "seq000064_f65",
+          "seq000065_f66",
+          "seq000068_f69",
+          "seq000069_f70",
+          "seq000070_f71",
+          "seq000071_f72"
+        ]
+      },
+      "cam0__cam2": {
+        "n": 34,
+        "sample": [
+          "seq000131_f132",
+          "seq000132_f133",
+          "seq000133_f134",
+          "seq000134_f135",
+          "seq000135_f136",
+          "seq000136_f137",
+          "seq000137_f138",
+          "seq000138_f139",
+          "seq000139_f140",
+          "seq000168_f169"
+        ]
+      },
+      "cam0__cam3": {
+        "n": 41,
+        "sample": [
+          "seq000060_f61",
+          "seq000062_f63",
+          "seq000063_f64",
+          "seq000064_f65",
+          "seq000065_f66",
+          "seq000066_f67",
+          "seq000067_f68",
+          "seq000068_f69",
+          "seq000069_f70",
+          "seq000070_f71"
+        ]
+      },
+      "cam1__cam2": {
+        "n": 13,
+        "sample": [
+          "seq000131_f132",
+          "seq000132_f133",
+          "seq000133_f134",
+          "seq000134_f135",
+          "seq000135_f136",
+          "seq000136_f137",
+          "seq000137_f138",
+          "seq000138_f139",
+          "seq000139_f140",
+          "seq000140_f141"
+        ]
+      },
+      "cam1__cam3": {
+        "n": 60,
+        "sample": [
+          "seq000026_f27",
+          "seq000027_f28",
+          "seq000028_f29",
+          "seq000029_f30",
+          "seq000030_f31",
+          "seq000032_f33",
+          "seq000033_f34",
+          "seq000034_f35",
+          "seq000035_f36",
+          "seq000036_f37"
+        ]
+      },
+      "cam2__cam3": {
+        "n": 6,
+        "sample": [
+          "seq000000_f1",
+          "seq000001_f2",
+          "seq000002_f3",
+          "seq000003_f4",
+          "seq000014_f15",
+          "seq000015_f16"
+        ]
+      }
+    },
+    "note": "frame_key 来自文件名 stem（会自动去掉形如 <cam>_ / <cam>- 的前缀）。"
+  }
+}

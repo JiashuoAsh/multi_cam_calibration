@@ -7,7 +7,7 @@
 - 先锁定标定板所在区域（ROI），再在 ROI 上做更激进的多尺度/上采样，召回率会明显上升。
 
 用法示例：
-  python suggest_detection_roi.py --image images/raw/left/frame_000120.png --camera left --write
+    python suggest_detection_roi.py --image images/raw/cam0/frame_000120.png --camera cam0 --write
 
 输出：
 - 在终端打印建议 ROI（[x,y,w,h]）
@@ -88,12 +88,11 @@ def _update_config_roi(config: Dict[str, Any], roi_xywh, camera: Optional[str]) 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="根据样例图自动建议 AprilTag 检测 ROI")
-    ap.add_argument("--image", required=True, help="输入图像路径（建议用 left/right 各选一张代表性图）")
+    ap.add_argument("--image", required=True, help="输入图像路径（建议每路相机各选一张代表性图）")
     ap.add_argument(
         "--camera",
         default=None,
-        choices=["left", "right"],
-        help="可选：写回配置时区分 left/right（会写到 detection.roi.{left|right}）",
+        help="可选：写回配置时写到 detection.roi.<camera>（例如 cam0）",
     )
     ap.add_argument(
         "--config",

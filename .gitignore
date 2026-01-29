@@ -1,5 +1,7 @@
 # Workspace
 videos/**
+# Detection cache (can be regenerated)
+cache/
 
 # Python
 __pycache__/
@@ -92,6 +94,7 @@ results/visualization/*
 # Results that can be regenerated
 results/visualization/
 *.csv
+
 
 # Archive folders (backup data)
 archive/*/

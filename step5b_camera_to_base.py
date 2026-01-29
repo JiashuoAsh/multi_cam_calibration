@@ -39,12 +39,20 @@ from utils import (
     get_step5_cameras,
     get_step5_camera_images,
     get_aruco_dict,
-    detect_apriltag_corners,
     create_apriltag_board,
     create_opencv_aruco_board,
     get_detection_settings,
+    get_detection_profile,
+    get_detection_roi,
+    get_detection_auto_roi,
+    create_detector_params,
     estimate_pose_apriltag,
 )
+
+from libs.apriltag_perf.cache import CacheConfig
+from libs.apriltag_perf.prefilter import PrefilterConfig
+from libs.apriltag_perf.scan import ScanLimits, ScanOrder, iter_scan_parallel_ordered, iter_scan_sequential
+from libs.apriltag_perf.service import CachedAprilTagDetector
 
 
 # region 日志与格式化（verbose 控制）
@@ -52,6 +60,14 @@ from utils import (
 
 # 默认尽量安静：只输出关键结果；需要更多过程信息用 --verbose。
 VERBOSE: bool = False
+
+
+_G_DET: Optional[CachedAprilTagDetector] = None
+_G_OBJ_POINTS: Optional[np.ndarray] = None
+_G_TAG_IDS: Optional[List[int]] = None
+_G_K: Optional[np.ndarray] = None
+_G_DIST: Optional[np.ndarray] = None
+_G_MIN_TAGS: int = 1
 
 
 def _vprint(*args, **kwargs) -> None:
@@ -78,6 +94,22 @@ def _pretty_mat(name: str, T: np.ndarray, indent: str = "  ") -> None:
 
 
 # endregion
+
+
+def _build_algo_key(config: Dict[str, Any], *, profile: str) -> Dict[str, Any]:
+    """构建用于缓存的 algo_key（必须可 JSON 序列化）。"""
+
+    det_cfg = (config or {}).get("calibration_settings", {}).get("detection", {})
+    board_cfg = (config or {}).get("apriltag_board", {})
+    corner_ref = (config or {}).get("calibration_settings", {}).get("corner_refinement")
+
+    return {
+        "opencv_version": str(getattr(cv2, "__version__", "unknown")),
+        "apriltag_family": str(board_cfg.get("family")),
+        "corner_refinement": str(corner_ref),
+        "profile": str(profile),
+        "detection": det_cfg,
+    }
 
 
 # region SE(3) 变换工具
@@ -173,48 +205,286 @@ def _get_prominent_tag_ids(
     return [tid for tid in candidate_ids if tid in tag_centers]
 
 
-def process_images_and_estimate_pose(
+def _init_step5_pose_worker(state: Dict[str, Any]) -> None:
+    """多进程 worker 初始化：为单相机创建 CachedAprilTagDetector。"""
+
+    global _G_DET, _G_OBJ_POINTS, _G_TAG_IDS, _G_K, _G_DIST, _G_MIN_TAGS
+
+    config = state["config"]
+    profile = str(state["profile"])
+
+    _G_OBJ_POINTS = np.asarray(state["obj_points"], dtype=np.float64)
+    _G_TAG_IDS = [int(x) for x in state["tag_ids"]]
+    _G_K = np.asarray(state["K"], dtype=np.float64)
+    _G_DIST = np.asarray(state["dist"], dtype=np.float64)
+    _G_MIN_TAGS = int(state["min_tags"])
+
+    aruco_dict = get_aruco_dict(str(state["family"]))
+    board = state.get("opencv_board")
+
+    detector_params = create_detector_params(config)
+    algo_key = _build_algo_key(config, profile=profile)
+
+    cache_cfg = CacheConfig(
+        enabled=bool(state["cache"]["enabled"]),
+        cache_dir=str(state["cache"]["cache_dir"]),
+        force_redetect=bool(state["cache"]["force_redetect"]),
+    )
+    prefilter_cfg = PrefilterConfig(enabled=bool(state["prefilter"]["enabled"]))
+
+    roi_raw = state.get("roi")
+    roi_t: Optional[Tuple[int, int, int, int]] = None
+    if isinstance(roi_raw, (list, tuple)) and len(roi_raw) == 4:
+        roi_t = (int(roi_raw[0]), int(roi_raw[1]), int(roi_raw[2]), int(roi_raw[3]))
+
+    auto_roi_cfg = state.get("auto_roi_cfg") or {}
+
+    _G_DET = CachedAprilTagDetector(
+        aruco_dict=aruco_dict,
+        detector_params=detector_params,
+        algo_key=algo_key,
+        use_multiscale=bool(state["use_multiscale"]),
+        opencv_refine=bool(state["opencv_refine"]),
+        board=board,
+        camera_matrix=_G_K,
+        dist_coeffs=_G_DIST,
+        roi=roi_t,
+        auto_roi=bool(auto_roi_cfg.get("enabled", False)),
+        auto_roi_pre_scale=float(auto_roi_cfg.get("pre_scale", 0.5)),
+        auto_roi_min_tags=int(auto_roi_cfg.get("min_tags", 1)),
+        auto_roi_margin=float(auto_roi_cfg.get("margin", 0.25)),
+        cache_cfg=cache_cfg,
+        prefilter_cfg=prefilter_cfg,
+    )
+
+
+def _step5_pose_worker(image_path: str) -> Dict[str, Any]:
+    """多进程扫描的单任务：检测并尝试 PnP，返回 rvec/tvec（若成功）。"""
+
+    global _G_DET, _G_OBJ_POINTS, _G_TAG_IDS, _G_K, _G_DIST, _G_MIN_TAGS
+
+    if _G_DET is None or _G_OBJ_POINTS is None or _G_TAG_IDS is None or _G_K is None or _G_DIST is None:
+        return {"path": str(image_path), "valid": False, "error": "worker 未初始化"}
+
+    p = str(image_path)
+    res = _G_DET.detect_path(Path(p))
+    ids = np.asarray(res.ids) if res.ids is not None else np.zeros((0, 1), dtype=np.int32)
+    n_tags = int(ids.shape[0])
+
+    out: Dict[str, Any] = {
+        "path": p,
+        "valid": False,
+        "n_tags": int(n_tags),
+        "from_cache": bool(res.from_cache),
+        "status": int(res.status),
+        "elapsed_ms": float(res.elapsed_ms),
+    }
+
+    if n_tags < int(_G_MIN_TAGS):
+        return out
+
+    ok, rvec, tvec = estimate_pose_apriltag(
+        res.corners,
+        res.ids,
+        _G_OBJ_POINTS,
+        _G_TAG_IDS,
+        _G_K,
+        _G_DIST,
+    )
+
+    if not ok:
+        out["pnp_ok"] = False
+        return out
+
+    out["pnp_ok"] = True
+    out["valid"] = True
+    out["rvec"] = np.asarray(rvec, dtype=np.float64).reshape(3).tolist()
+    out["tvec"] = np.asarray(tvec, dtype=np.float64).reshape(3).tolist()
+    return out
+
+
+def _scan_step5_poses_for_camera(
+    *,
     image_paths: List[str],
-    aruco_dict,
-    detector_params,
-    obj_points: np.ndarray,
-    tag_ids: List[int],
+    config: Dict[str, Any],
+    cam: str,
     K: np.ndarray,
     dist: np.ndarray,
-    *,
-    camera_name: str,
-    use_multiscale: bool = True,
-    opencv_refine: bool = False,
-    board=None,
-) -> List[Tuple[np.ndarray, np.ndarray]]:
-    """处理图像并估计位姿，返回 (rvec, tvec) 列表。"""
-    valid_poses = []
+    opencv_board,
+    obj_points: np.ndarray,
+    tag_ids: List[int],
+    use_multiscale: bool,
+    opencv_refine: bool,
+    min_tags: int,
+    scan_limits: ScanLimits,
+    scan_order: ScanOrder,
+    workers: int,
+    prefetch: int,
+    cache_cfg: CacheConfig,
+    prefilter_cfg: PrefilterConfig,
+) -> Tuple[List[Tuple[np.ndarray, np.ndarray]], Dict[str, Any]]:
+    """对单个相机的 Step5 图像做流式扫描，收集一定数量的有效 PnP 位姿。"""
 
-    for img_path in image_paths:
-        img = cv2.imread(img_path)
-        if img is None:
-            continue
+    profile = get_detection_profile(config)
+    auto_roi_cfg = get_detection_auto_roi(config)
+    roi = get_detection_roi(config, camera=cam)
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        corners, ids = detect_apriltag_corners(
-            gray,
-            aruco_dict,
-            detector_params,
-            use_multiscale=use_multiscale,
-            opencv_refine=opencv_refine,
-            board=board,
-            camera_matrix=K,
-            dist_coeffs=dist,
+    family = (config or {}).get("apriltag_board", {}).get("family")
+    if family is None:
+        raise ValueError("config.apriltag_board.family 缺失")
+
+    if int(workers) <= 0:
+        workers = int(os.cpu_count() or 1)
+
+    # 若用户未给 max_total，则按 target_valid 做一个默认上限，避免无意扫全量导致耗时爆炸。
+    if int(scan_limits.max_total) <= 0 and int(scan_limits.target_valid) > 0:
+        scan_limits = ScanLimits(
+            target_valid=int(scan_limits.target_valid),
+            max_total=int(min(len(image_paths), max(8 * int(scan_limits.target_valid), int(scan_limits.target_valid)))),
+            max_seconds=float(scan_limits.max_seconds),
         )
-        success, rvec, tvec = estimate_pose_apriltag(
-            corners, ids, obj_points, tag_ids, K, dist
+
+    state: Dict[str, Any] = {
+        "config": config,
+        "profile": str(profile),
+        "family": str(family),
+        "opencv_board": opencv_board,
+        "obj_points": np.asarray(obj_points, dtype=np.float64).tolist(),
+        "tag_ids": [int(x) for x in tag_ids],
+        "K": np.asarray(K, dtype=np.float64).tolist(),
+        "dist": np.asarray(dist, dtype=np.float64).tolist(),
+        "roi": (list(roi) if roi is not None else None),
+        "auto_roi_cfg": auto_roi_cfg,
+        "use_multiscale": bool(use_multiscale),
+        "opencv_refine": bool(opencv_refine),
+        "min_tags": int(min_tags),
+        "cache": {
+            "enabled": bool(cache_cfg.enabled),
+            "cache_dir": str(cache_cfg.cache_dir),
+            "force_redetect": bool(cache_cfg.force_redetect),
+        },
+        "prefilter": {"enabled": bool(prefilter_cfg.enabled)},
+    }
+
+    def _is_valid(r: Dict[str, Any]) -> bool:
+        return bool(r.get("valid", False))
+
+    if int(workers) <= 1:
+        _init_step5_pose_worker(state)
+        results, counters = iter_scan_sequential(
+            image_paths,
+            worker_fn=_step5_pose_worker,
+            is_valid_fn=_is_valid,
+            limits=scan_limits,
+            order=scan_order,
+        )
+    else:
+        results, counters = iter_scan_parallel_ordered(
+            image_paths,
+            worker_fn=_step5_pose_worker,
+            is_valid_fn=_is_valid,
+            limits=scan_limits,
+            order=scan_order,
+            max_workers=int(workers),
+            prefetch=int(prefetch),
+            initializer=_init_step5_pose_worker,
+            initargs=(state,),
         )
 
-        if success:
-            valid_poses.append((rvec, tvec))
+    # 聚合统计
+    det_total = 0
+    det_cache_hit = 0
+    det_cache_miss = 0
+    det_prefilter_skipped = 0
+    det_error = 0
+    det_ms_sum = 0.0
+    pnp_ok = 0
+    pnp_fail = 0
 
-    print(f"  - {camera_name}: 有效位姿: {len(valid_poses)}/{len(image_paths)}")
-    return valid_poses
+    valid_poses: List[Tuple[np.ndarray, np.ndarray]] = []
+    for r in results:
+        det_total += 1
+        if bool(r.get("from_cache", False)):
+            det_cache_hit += 1
+        else:
+            det_cache_miss += 1
+        st = int(r.get("status", 0))
+        if st == 2:
+            det_prefilter_skipped += 1
+        elif st == 1:
+            det_error += 1
+        det_ms_sum += float(r.get("elapsed_ms", 0.0))
+
+        if "pnp_ok" in r:
+            if bool(r.get("pnp_ok")):
+                pnp_ok += 1
+            else:
+                pnp_fail += 1
+
+        if bool(r.get("valid", False)):
+            rv = np.asarray(r.get("rvec"), dtype=np.float64).reshape(3, 1)
+            tv = np.asarray(r.get("tvec"), dtype=np.float64).reshape(3, 1)
+            valid_poses.append((rv, tv))
+
+    stop_reason = ""
+    if int(scan_limits.target_valid) > 0 and int(counters.valid) >= int(scan_limits.target_valid):
+        stop_reason = "target_valid_poses"
+    elif int(scan_limits.max_total) > 0 and int(counters.completed) >= int(scan_limits.max_total):
+        stop_reason = "max_total_images"
+    elif float(scan_limits.max_seconds) > 0 and float(counters.elapsed_s) >= float(scan_limits.max_seconds):
+        stop_reason = "max_detect_seconds"
+    else:
+        stop_reason = "exhausted_candidates"
+
+    scan_report: Dict[str, Any] = {
+        "cam": str(cam),
+        "profile": str(profile),
+        "min_tags": int(min_tags),
+        "scan": {
+            "strategy": str(scan_order.strategy),
+            "seed": int(scan_order.seed),
+            "limits": {
+                "target_valid": int(scan_limits.target_valid),
+                "max_total": int(scan_limits.max_total),
+                "max_seconds": float(scan_limits.max_seconds),
+            },
+            "counters": {
+                "total_candidates": int(counters.total_candidates),
+                "submitted": int(counters.submitted),
+                "completed": int(counters.completed),
+                "valid": int(counters.valid),
+                "elapsed_s": float(counters.elapsed_s),
+            },
+            "stop_reason": str(stop_reason),
+        },
+        "perf": {
+            "workers": int(workers),
+            "prefetch": int(prefetch),
+            "cache": {
+                "enabled": bool(cache_cfg.enabled),
+                "cache_dir": str(cache_cfg.cache_dir),
+                "force_redetect": bool(cache_cfg.force_redetect),
+            },
+            "prefilter": {"enabled": bool(prefilter_cfg.enabled)},
+        },
+        "detector_calls": {
+            "total_images": int(det_total),
+            "cache_hit": int(det_cache_hit),
+            "cache_miss": int(det_cache_miss),
+            "prefilter_skipped": int(det_prefilter_skipped),
+            "error": int(det_error),
+            "detect_ms_sum": float(det_ms_sum),
+        },
+        "pnp": {
+            "ok": int(pnp_ok),
+            "fail": int(pnp_fail),
+        },
+        "results": {
+            "valid_poses": int(len(valid_poses)),
+        },
+    }
+
+    return valid_poses, scan_report
 
 
 def load_intrinsics(json_path: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -273,6 +543,9 @@ def _discover_cameras(image_root: Path) -> List[str]:
     for p in sorted(image_root.iterdir()):
         if not p.is_dir():
             continue
+        # 说明：image_root 下可能存在 _comment 等说明目录，不应当被当作相机。
+        if p.name.startswith("_") or p.name.startswith(".") or p.name.startswith("__"):
+            continue
         # 仅当目录里存在图片文件才认为是相机
         imgs = _glob_images(p)
         if len(imgs) > 0:
@@ -307,9 +580,9 @@ def compute_C_T_T_mean_pose(valid_rvecs, valid_tvecs, *, cam_name: str) -> np.nd
         _vprint(f"  [稳定性检查] 旋转标准差: {r_std_norm:.4f} rad")
 
         if t_std_norm > 0.005: # 阈值 5mm
-            _vprint("  ⚠️ 警告: 位姿抖动较大 (>5mm)，建议增加光照或检查标定板是否晃动")
+            _vprint("  警告: 位姿抖动较大 (>5mm)，建议增加光照或检查标定板是否晃动")
         else:
-            _vprint("  ✓ 位姿稳定，单位置标定可靠")
+            _vprint("  位姿稳定，单位置标定可靠")
 
     # 对旋转向量取平均（转为旋转矩阵后平均）
     R_matrices = [cv2.Rodrigues(rvec)[0] for rvec in valid_rvecs]
@@ -585,9 +858,9 @@ def validate_stereo_consistency(
         _vprint(f"\n校验阈值: 旋转<{rot_threshold}°, 平移<{trans_threshold}m, 3D点<{point_threshold}m")
 
     if passed:
-        print("✓ 双目外参一致性校验通过")
+        print("双目外参一致性校验通过")
     else:
-        print("⚠ 双目外参一致性校验失败")
+        print("警告: 双目外参一致性校验失败")
         _vprint("  未通过的指标:")
         if rot_error_deg >= rot_threshold:
             _vprint(f"    - 旋转误差: {rot_error_deg:.3f}° (阈值: {rot_threshold}°)")
@@ -659,9 +932,9 @@ def print_tag_coordinates(
         print(f"  链式误差:   {chain_error:.6f}m")
 
         if chain_error > 1e-10:
-            print(f"    ⚠ 链式验证失败!")
+            print("    警告: 链式验证失败")
         else:
-            print(f"    ✓ 链式验证通过")
+            print("    链式验证通过")
         print()
 
     # 整体变换矩阵验证
@@ -671,9 +944,9 @@ def print_tag_coordinates(
     print(f"  ||B_T_T - (B_T_Cl @ Cl_T_T)||_F = {matrix_diff:.2e}")
 
     if matrix_diff < 1e-10:
-        print("  ✓ 变换矩阵链式验证通过")
+        print("  变换矩阵链式验证通过")
     else:
-        print("  ⚠ 变换矩阵链式验证失败")
+        print("  警告: 变换矩阵链式验证失败")
 
     print("-" * 60)
 
@@ -685,6 +958,13 @@ def process_step5_images(
     cameras: List[str],
     config_path: str,
     max_images: Optional[int] = None,
+    min_tags: int,
+    scan_limits: ScanLimits,
+    scan_order: ScanOrder,
+    workers: int,
+    prefetch: int,
+    cache_cfg: CacheConfig,
+    prefilter_cfg: PrefilterConfig,
 ) -> Dict[str, Any]:
     """处理 Step5 图像并估计每个相机的 C_T_T（T->C）。"""
     _vprint("\n处理 step5 图像...")
@@ -693,11 +973,9 @@ def process_step5_images(
     ds = get_step5_dataset(config)
     use_ds = bool(ds.get("enabled", False))
 
-    detector_params = cv2.aruco.DetectorParameters()
-    detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-
     C_T_T_by_cam: Dict[str, np.ndarray] = {}
     pose_stats: Dict[str, Dict[str, Any]] = {}
+    scan_reports: Dict[str, Any] = {}
 
     for cam in cameras:
         expected_desc = ""
@@ -724,24 +1002,37 @@ def process_step5_images(
         K, dist = load_intrinsics(intr_path)
 
         _vprint(f"\n处理 {cam}: {len(images)} 张图像...")
-        poses = process_images_and_estimate_pose(
-            images,
-            calibration_data["aruco_dict"],
-            detector_params,
-            calibration_data["obj_points"],
-            calibration_data["tag_ids"],
-            K,
-            dist,
-            camera_name=cam,
+        poses, scan_report = _scan_step5_poses_for_camera(
+            image_paths=images,
+            config=config,
+            cam=str(cam),
+            K=K,
+            dist=dist,
+            opencv_board=calibration_data.get("opencv_board"),
+            obj_points=calibration_data["obj_points"],
+            tag_ids=calibration_data["tag_ids"],
             use_multiscale=bool(calibration_data.get("use_multiscale", True)),
             opencv_refine=bool(calibration_data.get("opencv_refine", False)),
-            board=calibration_data.get("opencv_board"),
+            min_tags=int(min_tags),
+            scan_limits=scan_limits,
+            scan_order=scan_order,
+            workers=int(workers),
+            prefetch=int(prefetch),
+            cache_cfg=cache_cfg,
+            prefilter_cfg=prefilter_cfg,
         )
+
+        scan_reports[str(cam)] = scan_report
 
         pose_stats[cam] = {
             "total_images": int(len(images)),
             "valid_poses": int(len(poses)),
+            "scan": scan_report.get("scan"),
+            "detector_calls": scan_report.get("detector_calls"),
+            "pnp": scan_report.get("pnp"),
         }
+
+        print(f"  - {cam}: 有效位姿: {len(poses)}/{len(images)}")
 
         if len(poses) < 1:
             print(f"  - {cam}: 有效位姿过少，跳过")
@@ -760,6 +1051,7 @@ def process_step5_images(
     return {
         "C_T_T_by_cam": C_T_T_by_cam,
         "pose_stats": pose_stats,
+        "scan_reports": scan_reports,
     }
 
 
@@ -859,7 +1151,24 @@ def save_calibration_results(
     with open("results/camera_to_base.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✓ 结果已保存到 results/camera_to_base.json")
+    # 单独输出 scan/perf 报告，便于对比不同参数的检测耗时、缓存命中率等。
+    scan_reports = pose_data.get("scan_reports") or {}
+    try:
+        with open("results/step5b_scan_report.json", "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "image_root": str(image_root.as_posix()),
+                    "scan_reports": scan_reports,
+                },
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
+    except Exception:
+        pass
+
+    print(f"\n结果已保存到 results/camera_to_base.json")
     print(f"  相机数: {len(B_T_C)}")
 
 
@@ -894,6 +1203,90 @@ def main():
         type=int,
         default=None,
         help="限制每个相机最多处理的图片数量（默认处理全部）",
+    )
+
+    parser.add_argument(
+        "--min_tags",
+        type=int,
+        default=0,
+        help="每张图最少 tag 数（0=使用 config.calibration_settings.min_tags_for_pose）。",
+    )
+
+    # 性能优先：流式扫描/早停/并行/缓存/预筛选
+    parser.add_argument(
+        "--max_valid_poses",
+        type=int,
+        default=30,
+        help="每个相机最多使用多少个有效位姿进行平均（默认 30；0=不按此条件早停）。",
+    )
+    parser.add_argument(
+        "--max_total_images",
+        type=int,
+        default=0,
+        help="每个相机最多尝试检测多少张候选图像（0=自动=8*max_valid_poses）。",
+    )
+    parser.add_argument(
+        "--max_detect_seconds",
+        type=float,
+        default=0.0,
+        help="每个相机检测总耗时上限（秒，0=不限制）。",
+    )
+    parser.add_argument(
+        "--scan_strategy",
+        type=str,
+        default="uniform",
+        choices=["sequential", "random", "uniform"],
+        help="候选图像扫描策略：sequential/random/uniform（默认 uniform）。",
+    )
+    parser.add_argument(
+        "--scan_seed",
+        type=int,
+        default=0,
+        help="random 策略的随机种子（保证可复现）。",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help="多进程 worker 数（0=自动=CPU核数；1=禁用并行）。",
+    )
+    parser.add_argument(
+        "--prefetch",
+        type=int,
+        default=0,
+        help="并行时的预提交任务数（0=自动）。",
+    )
+    parser.add_argument(
+        "--cache_dir",
+        type=str,
+        default="cache/apriltag_detection",
+        help="检测缓存目录（默认 cache/apriltag_detection）。",
+    )
+    parser.add_argument(
+        "--no_cache",
+        action="store_true",
+        help="禁用检测缓存（会显著变慢）。",
+    )
+    parser.add_argument(
+        "--force_redetect",
+        action="store_true",
+        help="忽略缓存强制重新检测（用于调参/排查）。",
+    )
+    parser.add_argument(
+        "--prefilter",
+        action="store_true",
+        help="启用廉价预筛选（可能过滤掉明显无效帧，减少 detector 调用）。",
+    )
+
+    parser.add_argument(
+        "--no_multiscale",
+        action="store_true",
+        help="强制关闭多尺度检测（更快，但对小标签/远距离可能更不稳）。",
+    )
+    parser.add_argument(
+        "--no_opencv_refine",
+        action="store_true",
+        help="强制关闭 OpenCV refine（更快）。",
     )
     args = parser.parse_args()
 
@@ -934,6 +1327,28 @@ def main():
         # 1) 加载标定数据
         calibration_data = load_calibration_data(config_path=cfg_path)
 
+        # detection overrides
+        if bool(getattr(args, "no_multiscale", False)):
+            calibration_data["use_multiscale"] = False
+        if bool(getattr(args, "no_opencv_refine", False)):
+            calibration_data["opencv_refine"] = False
+
+        min_tags_cfg = int(config.get("calibration_settings", {}).get("min_tags_for_pose", 4))
+        min_tags = int(args.min_tags) if int(args.min_tags) > 0 else min_tags_cfg
+
+        cache_cfg = CacheConfig(
+            enabled=not bool(args.no_cache),
+            cache_dir=str(args.cache_dir),
+            force_redetect=bool(args.force_redetect),
+        )
+        prefilter_cfg = PrefilterConfig(enabled=bool(args.prefilter))
+        scan_limits = ScanLimits(
+            target_valid=int(args.max_valid_poses),
+            max_total=int(args.max_total_images),
+            max_seconds=float(args.max_detect_seconds),
+        )
+        scan_order = ScanOrder(strategy=str(args.scan_strategy), seed=int(args.scan_seed))
+
         # 2) 处理图像并计算各相机位姿 C_T_T
         pose_data = process_step5_images(
             calibration_data,
@@ -941,6 +1356,13 @@ def main():
             cameras=list(cameras),
             config_path=cfg_path,
             max_images=args.max_images,
+            min_tags=int(min_tags),
+            scan_limits=scan_limits,
+            scan_order=scan_order,
+            workers=int(args.workers),
+            prefetch=int(args.prefetch),
+            cache_cfg=cache_cfg,
+            prefilter_cfg=prefilter_cfg,
         )
 
         # 3) 计算相机到底盘的变换矩阵 B_T_C

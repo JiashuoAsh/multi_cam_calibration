@@ -7,7 +7,7 @@
   - archive/legacy_capture/step5a_capture_for_base.py
 
 视频版 Step5 推荐做法：
-  1) 先把视频抽帧到 images/step5/left,right/（文件名需与位姿记录对应）
+  1) 先把视频抽帧到 images/step5/cam0,cam1/...（文件名需与位姿记录对应）
   2) 再运行 step5b_camera_to_base.py
 """
 
@@ -15,7 +15,7 @@
 def main() -> None:
     raise SystemExit(
         "step5a_capture_for_base.py 已弃用并归档到 archive/legacy_capture/。\n"
-        "若使用视频：请先准备 images/step5/left,right 的图像对，然后运行 python step5b_camera_to_base.py"
+    "若使用视频：请先准备 images/step5/cam0,cam1/... 的图像序列，然后运行 python step5b_camera_to_base.py"
     )
 
 

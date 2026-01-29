@@ -3,8 +3,7 @@
 本仓库用于基于 **AprilTag 标定板** 的相机标定，支持：
 
 - 单相机/多相机 **内参**（Step3）
-- 双目外参（Step4 stereo）
-- 多相机外参（Step4 pose graph）
+- 相机间外参（Step4 pose graph，支持 2+ 相机）
 - 多相机相对机器人底盘坐标系外参（Step5，camera -> base）
 
 > 约定：全工程命名 `A_T_B` 表示 **B -> A** 的齐次变换（点从 B 坐标系变到 A 坐标系）。
@@ -87,7 +86,7 @@ OpenCV 的针孔投影模型及其相关 API 采用如下约定：外参 $[R|t]$
 
 - `C_T_T`：TagBoard -> Camera（Step5/Step4 中 PnP 估计出来的“板在相机里的位姿”）
 - `B_T_C`：Camera -> Base（Step5 的目标结果，“相机在底盘里的位姿”）
-- `Cr_T_Cl`：LeftCam -> RightCam（双目外参，左到右）
+- `C1_T_C0`：Cam0 -> Cam1（两相机外参，0 到 1）
 
 > 读法约定：`A_T_B` 读作“B 到 A 的变换”（或“B 在 A 中的位姿表达”）。
 
@@ -194,13 +193,12 @@ $$
 ### Step1：从视频抽帧（可选）
 - 脚本：`step1_extract_imgs_from_video.py`
 - 依赖：config 的 `camera_settings` + `video_extract`
-- 输出：`images/raw/<cam>/...`（双目默认 left/right）
+- 输出：`images/raw/<cam>/...`（名称来自 `camera_settings.camera_names`，例如 cam0/cam1）
 
 ### Step2：筛选包含标定板的图片
 - 脚本：`step2_filter_images.py`
 - 输入：
   - 若 `image_dataset.enabled=true`：来自 `image_dataset.cameras.*.raw_dir/raw_glob`
-  - 否则：默认 `images/raw/left` 与 `images/raw/right`
 - 输出：
   - `images/filtered/<cam>/...`
   - `results/filter_report.json`
@@ -211,34 +209,7 @@ $$
 - 输入：优先使用 `images/filtered/<cam>/...`（若为空会回退到 raw）
 - 输出：`results/<cam>_intrinsics.json`
 
-### Step4：相机间外参
-
-#### 4A) 双目外参（legacy stereo）
-- 脚本：`step4_stereo_extrinsic.py`
-- 适用：仅 `left/right`
-
-数据需求（必须）：
-- `results/left_intrinsics.json`, `results/right_intrinsics.json`
-- `images/filtered/left/` 与 `images/filtered/right/`
-  - **成对**、尽量同步的图像（同一时刻左右各一张）
-  - 每对图像中，标定板在两张图里都要“看得到且角点稳定”
-
-采集建议：
-- 建议 30~100 对图像（越多越稳，但质量比数量更重要）。
-- 标定板尽量覆盖画面中心/四角、不同距离、不同倾角。
-- 确保左右相机曝光/对焦稳定；避免运动模糊。
-- 如果板子在边缘、tag 太小或对比不足，容易导致角点抖动，外参会漂。
-
-质量检查建议：
-- 可先用脚本做“共同检测到的 tag 数”统计，剔除低质量 pair：
-  - `verify_step4_stereo_calibration.py`
-  - 或参考 `step4_stereo_extrinsic.py` 内置的质量分析逻辑
-
-输出：
-- `results/stereo_extrinsics.json`（`Cr_T_Cl`：右 <- 左）
-- `results/stereo_rectification.json`
-
-#### 4B) 多相机外参（pose graph）
+### Step4：相机间外参（pose graph，支持 2+ 相机）
 - 脚本：`step4_multi_extrinsic_pose_graph.py`
 
 数据需求（必须）：
@@ -285,7 +256,7 @@ $$
 
 数据需求（可选，但强烈推荐）：
 - Step4 相机间外参：
-  - `results/multi_camera_extrinsics.json`（多相机）或 `results/stereo_extrinsics.json`（双目）
+  - `results/multi_camera_extrinsics.json`
   - 作用：当某些相机缺少 Step5 图片时，可以从已标定相机把 `B_T_C` 传播过去（减少必须逐个采集的工作量）
 
 采集流程（推荐做法）：

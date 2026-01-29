@@ -47,21 +47,21 @@ class TestExtrinsicsGraphPropagation(unittest.TestCase):
 
     def test_propagate_anchor_is_reference(self) -> None:
         graph = ExtrinsicsGraph(
-            reference="left",
+            reference="cam0",
             T_cam_from_ref={
-                "left": np.eye(4, dtype=np.float64),
-                "right": _T_from_t(0.5, 0.0, 0.0),
+                "cam0": np.eye(4, dtype=np.float64),
+                "cam1": _T_from_t(0.5, 0.0, 0.0),
             },
             source="<unit_test>",
         )
 
-        B_T_left = _T_from_t(1.0, 2.0, 3.0)
-        out = propagate_B_T_C(B_T_C_anchor=B_T_left, anchor_cam="left", graph=graph)
+        B_T_cam0 = _T_from_t(1.0, 2.0, 3.0)
+        out = propagate_B_T_C(B_T_C_anchor=B_T_cam0, anchor_cam="cam0", graph=graph)
 
-        np.testing.assert_allclose(out["left"], B_T_left, atol=1e-12)
+        np.testing.assert_allclose(out["cam0"], B_T_cam0, atol=1e-12)
 
-        B_T_right_expected = B_T_left @ invert_transform(graph.T_cam_from_ref["right"], "inv")
-        np.testing.assert_allclose(out["right"], B_T_right_expected, atol=1e-12)
+        B_T_cam1_expected = B_T_cam0 @ invert_transform(graph.T_cam_from_ref["cam1"], "inv")
+        np.testing.assert_allclose(out["cam1"], B_T_cam1_expected, atol=1e-12)
 
 
 if __name__ == "__main__":

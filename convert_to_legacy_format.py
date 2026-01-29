@@ -46,8 +46,8 @@
     python convert_to_legacy_format.py
 
 输入:
-    - results/left_intrinsics.json
-    - results/right_intrinsics.json
+    - results/<cam_a>_intrinsics.json
+    - results/<cam_b>_intrinsics.json
     - results/camera_to_base.json (可选，如果有的话)
     - results/stereo_extrinsics.json
 
@@ -316,10 +316,29 @@ def main():
     # 加载标定结果
     print("\n加载标定结果...")
 
-    # 1. 加载内参
+    # 0. 加载双目外参元信息（用于确定 cam_a/cam_b）
     try:
-        left_intrinsics = load_json("results/left_intrinsics.json")
-        right_intrinsics = load_json("results/right_intrinsics.json")
+        stereo_extrinsics = load_json("results/stereo_extrinsics.json")
+        cam_a = str(stereo_extrinsics.get("camera_a") or "").strip()
+        cam_b = str(stereo_extrinsics.get("camera_b") or "").strip()
+        if not cam_a or not cam_b:
+            raise ValueError(
+                "results/stereo_extrinsics.json 缺少 camera_a/camera_b（请使用新版 step4_stereo_extrinsic.py 重新生成）"
+            )
+    except FileNotFoundError as e:
+        print(f"  错误: {e}")
+        print("  请先运行 python step4_stereo_extrinsic.py")
+        return
+    except Exception as e:
+        print(f"  错误: {e}")
+        return
+
+    print(f"\n双目相机: cameraLeft={cam_a}, cameraRight={cam_b}")
+
+    # 1. 加载内参（与 Step3 输出一致：results/<cam>_intrinsics.json）
+    try:
+        left_intrinsics = load_json(f"results/{cam_a}_intrinsics.json")
+        right_intrinsics = load_json(f"results/{cam_b}_intrinsics.json")
 
         K_l = np.array(left_intrinsics["camera_matrix"])
         dist_l = np.array(left_intrinsics["dist_coeffs"])
@@ -333,33 +352,44 @@ def main():
 
     except FileNotFoundError as e:
         print(f"  ❌ 错误: {e}")
-        print("  请先运行 python step3_intrinsic_apriltag.py")
+        print("  请先运行 python step3_intrinsic_apriltag.py（确保生成 results/<cam>_intrinsics.json）")
         return
 
     # 2. 尝试加载相机到底盘的变换
     use_base_frame = False
     try:
         camera_to_base = load_json("results/camera_to_base.json")
+        if "B_T_C" not in camera_to_base:
+            raise ValueError(
+                "results/camera_to_base.json 缺少 B_T_C 字段（请使用新版 step5b 重新生成）"
+            )
 
-        B_T_Cl = np.array(camera_to_base["B_T_Cl"])
-        B_T_Cr = np.array(camera_to_base["B_T_Cr"])
+        B_T_C = camera_to_base["B_T_C"]
+        if not isinstance(B_T_C, dict):
+            raise ValueError("results/camera_to_base.json: B_T_C 必须是字典")
+
+        if cam_a not in B_T_C or cam_b not in B_T_C:
+            raise ValueError(
+                f"results/camera_to_base.json: B_T_C 缺少相机键（需要: {cam_a}, {cam_b}）"
+            )
+
+        B_T_Ca = np.array(B_T_C[cam_a])
+        B_T_Cb = np.array(B_T_C[cam_b])
 
         # camera_to_base.json 保存的是 base<-camera (B_T_C)
         # 旧格式 id_car_matrix 需要的是 world(base)->camera 的 OpenCV 外参 (R,t)
         # 旧格式 id_car_eula 的 xyz 需要的是相机中心 C（在 base 下），而不是 t
-        R_left, t_left, C_left = invert_base_T_camera_to_world2cam(B_T_Cl)
-        R_right, t_right, C_right = invert_base_T_camera_to_world2cam(B_T_Cr)
+        R_left, t_left, C_left = invert_base_T_camera_to_world2cam(B_T_Ca)
+        R_right, t_right, C_right = invert_base_T_camera_to_world2cam(B_T_Cb)
 
         print("  ✓ 相机到底盘变换已加载")
         use_base_frame = True
 
     except FileNotFoundError:
-        print("  ⚠ 未找到相机到底盘变换，使用双目外参")
+        print("  未找到相机到底盘变换，使用双目外参")
 
         # 加载双目外参
         try:
-            stereo_extrinsics = load_json("results/stereo_extrinsics.json")
-
             R_stereo = np.array(stereo_extrinsics["R"], dtype=float)
             t_stereo = np.array(stereo_extrinsics["t"], dtype=float).reshape(3)
 
@@ -383,7 +413,7 @@ def main():
             t_right = t_stereo
             C_right = (-R_right.T @ t_right).reshape(3)
 
-            print("  ✓ 使用双目外参（左相机作为参考系）")
+            print(f"  ✓ 使用双目外参（{cam_a} 作为参考系）")
             use_base_frame = False
 
         except FileNotFoundError as e:
@@ -437,11 +467,11 @@ def main():
     print("=" * 60)
 
     if use_base_frame:
-        print("\n🎯 参考坐标系: 机器人底盘")
-        print("\n左相机在底盘坐标系:")
+        print("\n参考坐标系: 机器人底盘")
+        print(f"\n{cam_a} 在底盘坐标系:")
     else:
-        print("\n🎯 参考坐标系: 左相机")
-        print("\n左相机 (原点):")
+        print(f"\n参考坐标系: {cam_a}")
+        print(f"\n{cam_a} (原点):")
 
     print(f"  位置: [{C_left[0]:.4f}, {C_left[1]:.4f}, {C_left[2]:.4f}] 米")
     euler_l = rotation_matrix_to_legacy_usb_ypr(R_left)
@@ -451,7 +481,7 @@ def main():
     print(f"  内参: fx={K_l[0, 0]:.2f}, cx={K_l[0, 2]:.2f}, cy={K_l[1, 2]:.2f}")
     print(f"  重投影误差: {reproj_error_left:.4f} 像素")
 
-    print("\n右相机:")
+    print(f"\n{cam_b}:")
     print(f"  位置: [{C_right[0]:.4f}, {C_right[1]:.4f}, {C_right[2]:.4f}] 米")
     euler_r = rotation_matrix_to_legacy_usb_ypr(R_right)
     print(
@@ -460,12 +490,11 @@ def main():
     print(f"  内参: fx={K_r[0, 0]:.2f}, cx={K_r[0, 2]:.2f}, cy={K_r[1, 2]:.2f}")
     print(f"  重投影误差: {reproj_error_right:.4f} 像素")
 
+    baseline = float(np.linalg.norm(C_right - C_left))
     if use_base_frame:
-        baseline = np.linalg.norm(C_right - C_left)
-        print(f"\n📏 有效基线距离: {baseline * 1000:.2f} mm")
+        print(f"\n有效基线距离: {baseline * 1000:.2f} mm")
     else:
-        baseline = np.linalg.norm(C_right - C_left)
-        print(f"\n📏 基线距离: {baseline * 1000:.2f} mm")
+        print(f"\n基线距离: {baseline * 1000:.2f} mm")
 
     print("\n" + "=" * 60)
     print("  输出文件（与旧代码兼容）")
@@ -475,7 +504,7 @@ def main():
     print("=" * 60 + "\n")
 
     # 坐标系警告
-    print("⚠️  重要: 坐标系注意事项")
+    print("重要: 坐标系注意事项")
     print("  - 旧代码使用左手坐标系")
     print("  - Y轴: 向上为正（世界），向下为正（相机）")
     print("  - Z轴: 向前为正")

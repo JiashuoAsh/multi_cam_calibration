@@ -5,17 +5,24 @@
   "camera_settings": {
     "camera_type": "video_stereo",
 
+    "camera_names": ["cam0", "cam1"],
+
     "video_mode": "two_files",
     "_comment_video_mode": "two_files=左右各一段视频；single_sbs=单视频左右拼接",
 
-    "video_left_path": "videos/203.mp4",
-    "video_right_path": "videos/204.mp4",
+    "video_paths": {
+      "cam0": "videos/203.mp4",
+      "cam1": "videos/204.mp4"
+    },
 
     "video_path": "videos/stereo_sbs.mp4",
-    "sbs_layout": "rl",
 
-    "rotate_left": "none",
-    "rotate_right": "none",
+    "sbs_order": ["cam0", "cam1"],
+
+    "rotate": {
+      "cam0": "none",
+      "cam1": "none"
+    },
 
     "force_resize_width": null,
     "force_resize_height": null,
@@ -39,13 +46,13 @@
     "_comment_start_sec": "从第几秒开始（默认 0；优先级高于 start_frame）",
 
     "out_dir": "images/raw",
-    "_comment_out_dir": "输出目录（会生成 out_dir/left 与 out_dir/right）",
+    "_comment_out_dir": "输出目录（会生成 out_dir/<cam0> 与 out_dir/<cam1>，名称来自 camera_settings.camera_names）",
 
     "prefix": "frame_",
     "_comment_prefix": "输出文件名前缀（会拼接 6 位 frame index，例如 frame_000120.png）",
 
     "overwrite": false,
-    "_comment_overwrite": "是否清空 out_dir/left 与 out_dir/right 后再写入（谨慎使用）"
+    "_comment_overwrite": "是否清空 out_dir/<cam0> 与 out_dir/<cam1> 后再写入（谨慎使用）"
   },
 
   "image_dataset": {
@@ -55,8 +62,8 @@
     "filtered_root": "images/filtered",
     "sync": {"key": "stem", "mode": "intersection"},
     "cameras": {
-      "left": {"raw_dir": "images/raw/left"},
-      "right": {"raw_dir": "images/raw/right"}
+      "cam0": {"raw_dir": "images/raw/cam0"},
+      "cam1": {"raw_dir": "images/raw/cam1"}
     }
   },
 
@@ -65,8 +72,8 @@
     "enabled": false,
     "image_root": "images/step5",
     "cameras": {
-      "left": {"raw_dir": "images/step5/left"},
-      "right": {"raw_dir": "images/step5/right"}
+      "cam0": {"raw_dir": "images/step5/cam0"},
+      "cam1": {"raw_dir": "images/step5/cam1"}
     }
   },
 
@@ -74,7 +81,7 @@
     "_comment": "Step5（camera->base）标定方式选择：apriltag_pnp=step5b；world_anchor=step5c（需要世界位姿锚点 + Step4 外参，不需要 Step5 图片）。",
     "mode": "apriltag_pnp",
     "world_anchor": {
-      "reference_camera": "left",
+      "reference_camera": "cam0",
       "world_T_base": {
         "translation": [0.0, 0.0, 0.0],
         "rotation_euler_deg": [0.0, 0.0, 0.0],

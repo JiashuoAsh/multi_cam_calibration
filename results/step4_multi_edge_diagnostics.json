@@ -1,0 +1,4471 @@
+{
+  "meta": {
+    "timestamp": "2026-01-29T21:54:35.373938",
+    "image_root": "images/filtered",
+    "intrinsics_dir": "results",
+    "reference": "cam0",
+    "cameras_solved": [
+      "cam0",
+      "cam1",
+      "cam2",
+      "cam3"
+    ],
+    "min_tags": 1,
+    "max_reproj_mean_px": 0.0
+  },
+  "top_k": 20,
+  "ranking": {
+    "by_rot_deg": [
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000070_f71",
+        "weight": 3.0365599472600806,
+        "rot_deg": 10.430796926889125,
+        "trans_mm": 473.57141291203783,
+        "norm6": 473.5714479044778,
+        "weighted_norm6": 825.2327217954321,
+        "reproj_mean_px": {
+          "cam_i": 0.44749068726212937,
+          "cam_j": 0.21114936422265052
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000070_f71.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000070_f71",
+        "weight": 3.646830575696979,
+        "rot_deg": 10.328450680025046,
+        "trans_mm": 469.679755454882,
+        "norm6": 469.6797900482815,
+        "weighted_norm6": 896.9323061084824,
+        "reproj_mean_px": {
+          "cam_i": 0.10093073196373141,
+          "cam_j": 0.44749068726212937
+        },
+        "n_tags": {
+          "cam_i": 30,
+          "cam_j": 3
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000070_f71.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000060_f61",
+        "weight": 1.496034980838822,
+        "rot_deg": 2.5900293749805074,
+        "trans_mm": 99.95564229681963,
+        "norm6": 99.95565251860559,
+        "weighted_norm6": 122.25826628062109,
+        "reproj_mean_px": {
+          "cam_i": 1.2558954451406386,
+          "cam_j": 0.08097169073248547
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000060_f61.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000060_f61",
+        "weight": 1.4791700395468304,
+        "rot_deg": 2.207352144001222,
+        "trans_mm": 90.1943258771615,
+        "norm6": 90.19433410505665,
+        "weighted_norm6": 109.69537253568217,
+        "reproj_mean_px": {
+          "cam_i": 1.2558954451406386,
+          "cam_j": 0.09621414775831916
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000060_f61.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000062_f63",
+        "weight": 2.508642090421668,
+        "rot_deg": 1.133922297685562,
+        "trans_mm": 60.01763756469314,
+        "norm6": 60.01764082765819,
+        "weighted_norm6": 95.06010124619687,
+        "reproj_mean_px": {
+          "cam_i": 0.7001027600456382,
+          "cam_j": 0.09714129785973942
+        },
+        "n_tags": {
+          "cam_i": 4,
+          "cam_j": 11
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000062_f63.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000061_f62",
+        "weight": 2.838217114868399,
+        "rot_deg": 0.9980322774539135,
+        "trans_mm": 49.025944458722805,
+        "norm6": 49.02594755320459,
+        "weighted_norm6": 82.59405785576439,
+        "reproj_mean_px": {
+          "cam_i": 0.4555901994702825,
+          "cam_j": 0.24907752644917547
+        },
+        "n_tags": {
+          "cam_i": 7,
+          "cam_j": 33
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000061_f62.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000061_f62.bmp"
+        }
+      },
+      {
+        "pair": "cam2__cam3",
+        "cam_i": "cam2",
+        "cam_j": "cam3",
+        "frame_key": "seq000014_f15",
+        "weight": 2.26238934664576,
+        "rot_deg": 0.983951853725063,
+        "trans_mm": 35.500068614736875,
+        "norm6": 35.500072768514265,
+        "weighted_norm6": 53.3965154565615,
+        "reproj_mean_px": {
+          "cam_i": 0.6393374938770341,
+          "cam_j": 0.2446836419920944
+        },
+        "n_tags": {
+          "cam_i": 5,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam2\\cam2_seq000014_f15.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000014_f15.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000103_f104",
+        "weight": 10.748145391042351,
+        "rot_deg": 0.9709668869436348,
+        "trans_mm": 57.37960337460436,
+        "norm6": 57.379605877115544,
+        "weighted_norm6": 188.11538994458908,
+        "reproj_mean_px": {
+          "cam_i": 0.12950675151009616,
+          "cam_j": 0.056571862728489304
+        },
+        "n_tags": {
+          "cam_i": 22,
+          "cam_j": 4
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000103_f104.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000103_f104.bmp"
+        }
+      },
+      {
+        "pair": "cam2__cam3",
+        "cam_i": "cam2",
+        "cam_j": "cam3",
+        "frame_key": "seq000003_f4",
+        "weight": 1.5773689425885578,
+        "rot_deg": 0.9541571813126852,
+        "trans_mm": 33.760402852903894,
+        "norm6": 33.760406960208755,
+        "weighted_norm6": 42.40082588902948,
+        "reproj_mean_px": {
+          "cam_i": 1.1834920822845323,
+          "cam_j": 0.084442099757799
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam2\\cam2_seq000003_f4.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000003_f4.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000064_f65",
+        "weight": 11.285606699175482,
+        "rot_deg": 0.9205290341786344,
+        "trans_mm": 42.23513132549716,
+        "norm6": 42.2351343813037,
+        "weighted_norm6": 141.884951444727,
+        "reproj_mean_px": {
+          "cam_i": 0.13461459270489798,
+          "cam_j": 0.04260228657427437
+        },
+        "n_tags": {
+          "cam_i": 20,
+          "cam_j": 3
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000064_f65.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000064_f65.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000063_f64",
+        "weight": 4.0771021588758565,
+        "rot_deg": 0.9004179831931177,
+        "trans_mm": 44.132854538671154,
+        "norm6": 44.132857336692524,
+        "weighted_norm6": 89.11233900544413,
+        "reproj_mean_px": {
+          "cam_i": 0.2625036870994362,
+          "cam_j": 0.22804080309588487
+        },
+        "n_tags": {
+          "cam_i": 25,
+          "cam_j": 27
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000063_f64.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000062_f63",
+        "weight": 2.4731962811273003,
+        "rot_deg": 0.8781611254426325,
+        "trans_mm": 47.49552447160713,
+        "norm6": 47.49552694458629,
+        "weighted_norm6": 74.69336113803129,
+        "reproj_mean_px": {
+          "cam_i": 0.7001027600456382,
+          "cam_j": 0.1085673868657853
+        },
+        "n_tags": {
+          "cam_i": 4,
+          "cam_j": 14
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000062_f63.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000087_f88",
+        "weight": 16.07747261561435,
+        "rot_deg": 0.7954039477983446,
+        "trans_mm": 35.770843449102564,
+        "norm6": 35.770846142937785,
+        "weighted_norm6": 143.42937388080946,
+        "reproj_mean_px": {
+          "cam_i": 0.058815696786760595,
+          "cam_j": 0.06558196494880421
+        },
+        "n_tags": {
+          "cam_i": 2,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000087_f88.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000063_f64",
+        "weight": 6.463456981760972,
+        "rot_deg": 0.77368362270189,
+        "trans_mm": 39.18738641157311,
+        "norm6": 39.18738873808478,
+        "weighted_norm6": 99.62739079327021,
+        "reproj_mean_px": {
+          "cam_i": 0.2625036870994362,
+          "cam_j": 0.046928247799138643
+        },
+        "n_tags": {
+          "cam_i": 25,
+          "cam_j": 6
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000063_f64.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000093_f94",
+        "weight": 7.426443552005719,
+        "rot_deg": 0.763610702459182,
+        "trans_mm": 32.57710356911353,
+        "norm6": 32.57710629530444,
+        "weighted_norm6": 88.77750737412964,
+        "reproj_mean_px": {
+          "cam_i": 0.2193111848259926,
+          "cam_j": 0.049996726288452496
+        },
+        "n_tags": {
+          "cam_i": 4,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000093_f94.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000093_f94.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000036_f37",
+        "weight": 2.1843828757003236,
+        "rot_deg": 0.7463533011633335,
+        "trans_mm": 32.72516001205725,
+        "norm6": 32.72516260463542,
+        "weighted_norm6": 48.366670793978024,
+        "reproj_mean_px": {
+          "cam_i": 0.7788711020763401,
+          "cam_j": 0.13671930208245023
+        },
+        "n_tags": {
+          "cam_i": 9,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000036_f37.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000036_f37.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000102_f103",
+        "weight": 11.205137532917783,
+        "rot_deg": 0.7414560360668706,
+        "trans_mm": 41.43854910154877,
+        "norm6": 41.43855112219832,
+        "weighted_norm6": 138.71172029330538,
+        "reproj_mean_px": {
+          "cam_i": 0.11357541230874145,
+          "cam_j": 0.06491414162350788
+        },
+        "n_tags": {
+          "cam_i": 22,
+          "cam_j": 18
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000102_f103.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000102_f103.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000068_f69",
+        "weight": 11.963586244879988,
+        "rot_deg": 0.7236213352042737,
+        "trans_mm": 29.469630434964788,
+        "norm6": 29.469633141244962,
+        "weighted_norm6": 101.93079743773673,
+        "reproj_mean_px": {
+          "cam_i": 0.10298880124300558,
+          "cam_j": 0.06418515137140658
+        },
+        "n_tags": {
+          "cam_i": 30,
+          "cam_j": 12
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000068_f69.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000068_f69.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000086_f87",
+        "weight": 14.103403966943562,
+        "rot_deg": 0.7208330636960721,
+        "trans_mm": 32.466575544393656,
+        "norm6": 32.466577981966694,
+        "weighted_norm6": 121.92660710286427,
+        "reproj_mean_px": {
+          "cam_i": 0.0752383612254121,
+          "cam_j": 0.06657137525293914
+        },
+        "n_tags": {
+          "cam_i": 2,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000086_f87.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000086_f87.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000077_f78",
+        "weight": 6.877647793038829,
+        "rot_deg": 0.7128299913620315,
+        "trans_mm": 36.81352748882542,
+        "norm6": 36.81352959109895,
+        "weighted_norm6": 96.54447480776449,
+        "reproj_mean_px": {
+          "cam_i": 0.23792713712492805,
+          "cam_j": 0.05286995807152681
+        },
+        "n_tags": {
+          "cam_i": 25,
+          "cam_j": 12
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000077_f78.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000077_f78.bmp"
+        }
+      }
+    ],
+    "by_trans_mm": [
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000070_f71",
+        "weight": 3.0365599472600806,
+        "rot_deg": 10.430796926889125,
+        "trans_mm": 473.57141291203783,
+        "norm6": 473.5714479044778,
+        "weighted_norm6": 825.2327217954321,
+        "reproj_mean_px": {
+          "cam_i": 0.44749068726212937,
+          "cam_j": 0.21114936422265052
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000070_f71.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000070_f71",
+        "weight": 3.646830575696979,
+        "rot_deg": 10.328450680025046,
+        "trans_mm": 469.679755454882,
+        "norm6": 469.6797900482815,
+        "weighted_norm6": 896.9323061084824,
+        "reproj_mean_px": {
+          "cam_i": 0.10093073196373141,
+          "cam_j": 0.44749068726212937
+        },
+        "n_tags": {
+          "cam_i": 30,
+          "cam_j": 3
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000070_f71.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000060_f61",
+        "weight": 1.496034980838822,
+        "rot_deg": 2.5900293749805074,
+        "trans_mm": 99.95564229681963,
+        "norm6": 99.95565251860559,
+        "weighted_norm6": 122.25826628062109,
+        "reproj_mean_px": {
+          "cam_i": 1.2558954451406386,
+          "cam_j": 0.08097169073248547
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000060_f61.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000060_f61",
+        "weight": 1.4791700395468304,
+        "rot_deg": 2.207352144001222,
+        "trans_mm": 90.1943258771615,
+        "norm6": 90.19433410505665,
+        "weighted_norm6": 109.69537253568217,
+        "reproj_mean_px": {
+          "cam_i": 1.2558954451406386,
+          "cam_j": 0.09621414775831916
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000060_f61.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000062_f63",
+        "weight": 2.508642090421668,
+        "rot_deg": 1.133922297685562,
+        "trans_mm": 60.01763756469314,
+        "norm6": 60.01764082765819,
+        "weighted_norm6": 95.06010124619687,
+        "reproj_mean_px": {
+          "cam_i": 0.7001027600456382,
+          "cam_j": 0.09714129785973942
+        },
+        "n_tags": {
+          "cam_i": 4,
+          "cam_j": 11
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000062_f63.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000103_f104",
+        "weight": 10.748145391042351,
+        "rot_deg": 0.9709668869436348,
+        "trans_mm": 57.37960337460436,
+        "norm6": 57.379605877115544,
+        "weighted_norm6": 188.11538994458908,
+        "reproj_mean_px": {
+          "cam_i": 0.12950675151009616,
+          "cam_j": 0.056571862728489304
+        },
+        "n_tags": {
+          "cam_i": 22,
+          "cam_j": 4
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000103_f104.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000103_f104.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000061_f62",
+        "weight": 2.838217114868399,
+        "rot_deg": 0.9980322774539135,
+        "trans_mm": 49.025944458722805,
+        "norm6": 49.02594755320459,
+        "weighted_norm6": 82.59405785576439,
+        "reproj_mean_px": {
+          "cam_i": 0.4555901994702825,
+          "cam_j": 0.24907752644917547
+        },
+        "n_tags": {
+          "cam_i": 7,
+          "cam_j": 33
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000061_f62.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000061_f62.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000062_f63",
+        "weight": 2.4731962811273003,
+        "rot_deg": 0.8781611254426325,
+        "trans_mm": 47.49552447160713,
+        "norm6": 47.49552694458629,
+        "weighted_norm6": 74.69336113803129,
+        "reproj_mean_px": {
+          "cam_i": 0.7001027600456382,
+          "cam_j": 0.1085673868657853
+        },
+        "n_tags": {
+          "cam_i": 4,
+          "cam_j": 14
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000062_f63.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000063_f64",
+        "weight": 4.0771021588758565,
+        "rot_deg": 0.9004179831931177,
+        "trans_mm": 44.132854538671154,
+        "norm6": 44.132857336692524,
+        "weighted_norm6": 89.11233900544413,
+        "reproj_mean_px": {
+          "cam_i": 0.2625036870994362,
+          "cam_j": 0.22804080309588487
+        },
+        "n_tags": {
+          "cam_i": 25,
+          "cam_j": 27
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000063_f64.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000064_f65",
+        "weight": 11.285606699175482,
+        "rot_deg": 0.9205290341786344,
+        "trans_mm": 42.23513132549716,
+        "norm6": 42.2351343813037,
+        "weighted_norm6": 141.884951444727,
+        "reproj_mean_px": {
+          "cam_i": 0.13461459270489798,
+          "cam_j": 0.04260228657427437
+        },
+        "n_tags": {
+          "cam_i": 20,
+          "cam_j": 3
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000064_f65.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000064_f65.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000102_f103",
+        "weight": 11.205137532917783,
+        "rot_deg": 0.7414560360668706,
+        "trans_mm": 41.43854910154877,
+        "norm6": 41.43855112219832,
+        "weighted_norm6": 138.71172029330538,
+        "reproj_mean_px": {
+          "cam_i": 0.11357541230874145,
+          "cam_j": 0.06491414162350788
+        },
+        "n_tags": {
+          "cam_i": 22,
+          "cam_j": 18
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000102_f103.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000102_f103.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000063_f64",
+        "weight": 6.463456981760972,
+        "rot_deg": 0.77368362270189,
+        "trans_mm": 39.18738641157311,
+        "norm6": 39.18738873808478,
+        "weighted_norm6": 99.62739079327021,
+        "reproj_mean_px": {
+          "cam_i": 0.2625036870994362,
+          "cam_j": 0.046928247799138643
+        },
+        "n_tags": {
+          "cam_i": 25,
+          "cam_j": 6
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000063_f64.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000077_f78",
+        "weight": 6.877647793038829,
+        "rot_deg": 0.7128299913620315,
+        "trans_mm": 36.81352748882542,
+        "norm6": 36.81352959109895,
+        "weighted_norm6": 96.54447480776449,
+        "reproj_mean_px": {
+          "cam_i": 0.23792713712492805,
+          "cam_j": 0.05286995807152681
+        },
+        "n_tags": {
+          "cam_i": 25,
+          "cam_j": 12
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000077_f78.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000077_f78.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000087_f88",
+        "weight": 16.07747261561435,
+        "rot_deg": 0.7954039477983446,
+        "trans_mm": 35.770843449102564,
+        "norm6": 35.770846142937785,
+        "weighted_norm6": 143.42937388080946,
+        "reproj_mean_px": {
+          "cam_i": 0.058815696786760595,
+          "cam_j": 0.06558196494880421
+        },
+        "n_tags": {
+          "cam_i": 2,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000087_f88.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp"
+        }
+      },
+      {
+        "pair": "cam2__cam3",
+        "cam_i": "cam2",
+        "cam_j": "cam3",
+        "frame_key": "seq000014_f15",
+        "weight": 2.26238934664576,
+        "rot_deg": 0.983951853725063,
+        "trans_mm": 35.500068614736875,
+        "norm6": 35.500072768514265,
+        "weighted_norm6": 53.3965154565615,
+        "reproj_mean_px": {
+          "cam_i": 0.6393374938770341,
+          "cam_j": 0.2446836419920944
+        },
+        "n_tags": {
+          "cam_i": 5,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam2\\cam2_seq000014_f15.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000014_f15.bmp"
+        }
+      },
+      {
+        "pair": "cam2__cam3",
+        "cam_i": "cam2",
+        "cam_j": "cam3",
+        "frame_key": "seq000003_f4",
+        "weight": 1.5773689425885578,
+        "rot_deg": 0.9541571813126852,
+        "trans_mm": 33.760402852903894,
+        "norm6": 33.760406960208755,
+        "weighted_norm6": 42.40082588902948,
+        "reproj_mean_px": {
+          "cam_i": 1.1834920822845323,
+          "cam_j": 0.084442099757799
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam2\\cam2_seq000003_f4.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000003_f4.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000079_f80",
+        "weight": 10.956668177734993,
+        "rot_deg": 0.7103886552493482,
+        "trans_mm": 32.97857233670187,
+        "norm6": 32.97857466739399,
+        "weighted_norm6": 109.16191257942643,
+        "reproj_mean_px": {
+          "cam_i": 0.12983157566588271,
+          "cam_j": 0.05270566718538781
+        },
+        "n_tags": {
+          "cam_i": 9,
+          "cam_j": 34
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000079_f80.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000079_f80.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000036_f37",
+        "weight": 2.1843828757003236,
+        "rot_deg": 0.7463533011633335,
+        "trans_mm": 32.72516001205725,
+        "norm6": 32.72516260463542,
+        "weighted_norm6": 48.366670793978024,
+        "reproj_mean_px": {
+          "cam_i": 0.7788711020763401,
+          "cam_j": 0.13671930208245023
+        },
+        "n_tags": {
+          "cam_i": 9,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000036_f37.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000036_f37.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000093_f94",
+        "weight": 7.426443552005719,
+        "rot_deg": 0.763610702459182,
+        "trans_mm": 32.57710356911353,
+        "norm6": 32.57710629530444,
+        "weighted_norm6": 88.77750737412964,
+        "reproj_mean_px": {
+          "cam_i": 0.2193111848259926,
+          "cam_j": 0.049996726288452496
+        },
+        "n_tags": {
+          "cam_i": 4,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000093_f94.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000093_f94.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000081_f82",
+        "weight": 13.73864503735286,
+        "rot_deg": 0.7102642671719571,
+        "trans_mm": 32.514474225489444,
+        "norm6": 32.514476588621115,
+        "weighted_norm6": 120.51711275267571,
+        "reproj_mean_px": {
+          "cam_i": 0.09123087277568839,
+          "cam_j": 0.05434389056977735
+        },
+        "n_tags": {
+          "cam_i": 5,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000081_f82.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000081_f82.bmp"
+        }
+      }
+    ],
+    "by_weighted_norm6": [
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000070_f71",
+        "weight": 3.646830575696979,
+        "rot_deg": 10.328450680025046,
+        "trans_mm": 469.679755454882,
+        "norm6": 469.6797900482815,
+        "weighted_norm6": 896.9323061084824,
+        "reproj_mean_px": {
+          "cam_i": 0.10093073196373141,
+          "cam_j": 0.44749068726212937
+        },
+        "n_tags": {
+          "cam_i": 30,
+          "cam_j": 3
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000070_f71.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000070_f71",
+        "weight": 3.0365599472600806,
+        "rot_deg": 10.430796926889125,
+        "trans_mm": 473.57141291203783,
+        "norm6": 473.5714479044778,
+        "weighted_norm6": 825.2327217954321,
+        "reproj_mean_px": {
+          "cam_i": 0.44749068726212937,
+          "cam_j": 0.21114936422265052
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 35
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000070_f71.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000103_f104",
+        "weight": 10.748145391042351,
+        "rot_deg": 0.9709668869436348,
+        "trans_mm": 57.37960337460436,
+        "norm6": 57.379605877115544,
+        "weighted_norm6": 188.11538994458908,
+        "reproj_mean_px": {
+          "cam_i": 0.12950675151009616,
+          "cam_j": 0.056571862728489304
+        },
+        "n_tags": {
+          "cam_i": 22,
+          "cam_j": 4
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000103_f104.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000103_f104.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000087_f88",
+        "weight": 16.07747261561435,
+        "rot_deg": 0.7954039477983446,
+        "trans_mm": 35.770843449102564,
+        "norm6": 35.770846142937785,
+        "weighted_norm6": 143.42937388080946,
+        "reproj_mean_px": {
+          "cam_i": 0.058815696786760595,
+          "cam_j": 0.06558196494880421
+        },
+        "n_tags": {
+          "cam_i": 2,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000087_f88.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000064_f65",
+        "weight": 11.285606699175482,
+        "rot_deg": 0.9205290341786344,
+        "trans_mm": 42.23513132549716,
+        "norm6": 42.2351343813037,
+        "weighted_norm6": 141.884951444727,
+        "reproj_mean_px": {
+          "cam_i": 0.13461459270489798,
+          "cam_j": 0.04260228657427437
+        },
+        "n_tags": {
+          "cam_i": 20,
+          "cam_j": 3
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000064_f65.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000064_f65.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000102_f103",
+        "weight": 11.205137532917783,
+        "rot_deg": 0.7414560360668706,
+        "trans_mm": 41.43854910154877,
+        "norm6": 41.43855112219832,
+        "weighted_norm6": 138.71172029330538,
+        "reproj_mean_px": {
+          "cam_i": 0.11357541230874145,
+          "cam_j": 0.06491414162350788
+        },
+        "n_tags": {
+          "cam_i": 22,
+          "cam_j": 18
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000102_f103.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000102_f103.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000084_f85",
+        "weight": 22.14516276794699,
+        "rot_deg": 0.6794410748755421,
+        "trans_mm": 29.388714914748753,
+        "norm6": 29.388717307225484,
+        "weighted_norm6": 138.29932795775832,
+        "reproj_mean_px": {
+          "cam_i": 0.05411930387591485,
+          "cam_j": 0.03619387290934722
+        },
+        "n_tags": {
+          "cam_i": 4,
+          "cam_j": 6
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000084_f85.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000084_f85.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam3",
+        "cam_i": "cam0",
+        "cam_j": "cam3",
+        "frame_key": "seq000060_f61",
+        "weight": 1.496034980838822,
+        "rot_deg": 2.5900293749805074,
+        "trans_mm": 99.95564229681963,
+        "norm6": 99.95565251860559,
+        "weighted_norm6": 122.25826628062109,
+        "reproj_mean_px": {
+          "cam_i": 1.2558954451406386,
+          "cam_j": 0.08097169073248547
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000060_f61.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000086_f87",
+        "weight": 14.103403966943562,
+        "rot_deg": 0.7208330636960721,
+        "trans_mm": 32.466575544393656,
+        "norm6": 32.466577981966694,
+        "weighted_norm6": 121.92660710286427,
+        "reproj_mean_px": {
+          "cam_i": 0.0752383612254121,
+          "cam_j": 0.06657137525293914
+        },
+        "n_tags": {
+          "cam_i": 2,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000086_f87.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000086_f87.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000030_f31",
+        "weight": 19.496697635220627,
+        "rot_deg": 0.6617778598718707,
+        "trans_mm": 27.51267788549646,
+        "norm6": 27.51268030996372,
+        "weighted_norm6": 121.48241869021743,
+        "reproj_mean_px": {
+          "cam_i": 0.049807597428509764,
+          "cam_j": 0.052773877517637846
+        },
+        "n_tags": {
+          "cam_i": 12,
+          "cam_j": 4
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000030_f31.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000030_f31.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000081_f82",
+        "weight": 13.73864503735286,
+        "rot_deg": 0.7102642671719571,
+        "trans_mm": 32.514474225489444,
+        "norm6": 32.514476588621115,
+        "weighted_norm6": 120.51711275267571,
+        "reproj_mean_px": {
+          "cam_i": 0.09123087277568839,
+          "cam_j": 0.05434389056977735
+        },
+        "n_tags": {
+          "cam_i": 5,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000081_f82.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000081_f82.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000080_f81",
+        "weight": 12.07789381202245,
+        "rot_deg": 0.6957251476138181,
+        "trans_mm": 32.14820989874109,
+        "norm6": 32.14821219194848,
+        "weighted_norm6": 111.72553158639762,
+        "reproj_mean_px": {
+          "cam_i": 0.1171951012296163,
+          "cam_j": 0.04839668415345942
+        },
+        "n_tags": {
+          "cam_i": 6,
+          "cam_j": 29
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000080_f81.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000080_f81.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000060_f61",
+        "weight": 1.4791700395468304,
+        "rot_deg": 2.207352144001222,
+        "trans_mm": 90.1943258771615,
+        "norm6": 90.19433410505665,
+        "weighted_norm6": 109.69537253568217,
+        "reproj_mean_px": {
+          "cam_i": 1.2558954451406386,
+          "cam_j": 0.09621414775831916
+        },
+        "n_tags": {
+          "cam_i": 3,
+          "cam_j": 36
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000060_f61.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000032_f33",
+        "weight": 19.651142487591482,
+        "rot_deg": 0.5868867213890211,
+        "trans_mm": 24.731824039075477,
+        "norm6": 24.7318261602536,
+        "weighted_norm6": 109.63521876312244,
+        "reproj_mean_px": {
+          "cam_i": 0.04925771424075728,
+          "cam_j": 0.05251753883996715
+        },
+        "n_tags": {
+          "cam_i": 18,
+          "cam_j": 29
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000032_f33.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000032_f33.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000079_f80",
+        "weight": 10.956668177734993,
+        "rot_deg": 0.7103886552493482,
+        "trans_mm": 32.97857233670187,
+        "norm6": 32.97857466739399,
+        "weighted_norm6": 109.16191257942643,
+        "reproj_mean_px": {
+          "cam_i": 0.12983157566588271,
+          "cam_j": 0.05270566718538781
+        },
+        "n_tags": {
+          "cam_i": 9,
+          "cam_j": 34
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000079_f80.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000079_f80.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000086_f87",
+        "weight": 17.217883055365384,
+        "rot_deg": 0.5948076417026229,
+        "trans_mm": 26.150778053171685,
+        "norm6": 26.15078011376927,
+        "weighted_norm6": 108.51118990627677,
+        "reproj_mean_px": {
+          "cam_i": 0.06657137525293914,
+          "cam_j": 0.04958692327707476
+        },
+        "n_tags": {
+          "cam_i": 36,
+          "cam_j": 34
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000086_f87.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000086_f87.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000087_f88",
+        "weight": 18.500217136479154,
+        "rot_deg": 0.5694557545927386,
+        "trans_mm": 25.13392236980893,
+        "norm6": 25.13392433490789,
+        "weighted_norm6": 108.10573060173584,
+        "reproj_mean_px": {
+          "cam_i": 0.06558196494880421,
+          "cam_j": 0.042524874297766246
+        },
+        "n_tags": {
+          "cam_i": 36,
+          "cam_j": 9
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000087_f88.bmp"
+        }
+      },
+      {
+        "pair": "cam0__cam1",
+        "cam_i": "cam0",
+        "cam_j": "cam1",
+        "frame_key": "seq000085_f86",
+        "weight": 14.253209375446314,
+        "rot_deg": 0.6155447420165573,
+        "trans_mm": 28.04950419787284,
+        "norm6": 28.04950625527308,
+        "weighted_norm6": 105.8964870631894,
+        "reproj_mean_px": {
+          "cam_i": 0.08226286192834799,
+          "cam_j": 0.058056412651688385
+        },
+        "n_tags": {
+          "cam_i": 2,
+          "cam_j": 21
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam0\\cam0_seq000085_f86.bmp",
+          "cam_j": "images\\filtered\\cam1\\cam1_seq000085_f86.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000090_f91",
+        "weight": 19.60360666531457,
+        "rot_deg": 0.5407665431353319,
+        "trans_mm": 23.87034622210858,
+        "norm6": 23.87034808799684,
+        "weighted_norm6": 105.68825859206453,
+        "reproj_mean_px": {
+          "cam_i": 0.06047357980418497,
+          "cam_j": 0.04154846308543689
+        },
+        "n_tags": {
+          "cam_i": 36,
+          "cam_j": 2
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000090_f91.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000090_f91.bmp"
+        }
+      },
+      {
+        "pair": "cam1__cam3",
+        "cam_i": "cam1",
+        "cam_j": "cam3",
+        "frame_key": "seq000089_f90",
+        "weight": 20.887100176687056,
+        "rot_deg": 0.49097293340218584,
+        "trans_mm": 22.633390436565506,
+        "norm6": 22.633392058712513,
+        "weighted_norm6": 103.44004986478373,
+        "reproj_mean_px": {
+          "cam_i": 0.05403823281690773,
+          "cam_j": 0.04171464733791059
+        },
+        "n_tags": {
+          "cam_i": 12,
+          "cam_j": 6
+        },
+        "image_path": {
+          "cam_i": "images\\filtered\\cam1\\cam1_seq000089_f90.bmp",
+          "cam_j": "images\\filtered\\cam3\\cam3_seq000089_f90.bmp"
+        }
+      }
+    ]
+  },
+  "by_pair": {
+    "cam2__cam3": {
+      "n": 6,
+      "top_by_rot_deg": [
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000014_f15",
+          "weight": 2.26238934664576,
+          "rot_deg": 0.983951853725063,
+          "trans_mm": 35.500068614736875,
+          "norm6": 35.500072768514265,
+          "weighted_norm6": 53.3965154565615,
+          "reproj_mean_px": {
+            "cam_i": 0.6393374938770341,
+            "cam_j": 0.2446836419920944
+          },
+          "n_tags": {
+            "cam_i": 5,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000014_f15.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000014_f15.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000003_f4",
+          "weight": 1.5773689425885578,
+          "rot_deg": 0.9541571813126852,
+          "trans_mm": 33.760402852903894,
+          "norm6": 33.760406960208755,
+          "weighted_norm6": 42.40082588902948,
+          "reproj_mean_px": {
+            "cam_i": 1.1834920822845323,
+            "cam_j": 0.084442099757799
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000003_f4.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000003_f4.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000000_f1",
+          "weight": 2.105430936087918,
+          "rot_deg": 0.3693747236577589,
+          "trans_mm": 12.983006469557957,
+          "norm6": 12.983008070161544,
+          "weighted_norm6": 18.838478637815935,
+          "reproj_mean_px": {
+            "cam_i": 0.8663026547197149,
+            "cam_j": 0.0836216414038054
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000000_f1.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000000_f1.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000015_f16",
+          "weight": 4.5947017073733205,
+          "rot_deg": 0.2643757670451135,
+          "trans_mm": 11.772173447550092,
+          "norm6": 11.772174351847653,
+          "weighted_norm6": 25.23395629318978,
+          "reproj_mean_px": {
+            "cam_i": 0.3390194599181812,
+            "cam_j": 0.09626451004890321
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000015_f16.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000015_f16.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000002_f3",
+          "weight": 1.6749909283041038,
+          "rot_deg": 0.21347230631806446,
+          "trans_mm": 7.749876037828501,
+          "norm6": 7.749876933426352,
+          "weighted_norm6": 10.030002370788345,
+          "reproj_mean_px": {
+            "cam_i": 1.1189493572477371,
+            "cam_j": 0.07508696032501647
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000002_f3.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000002_f3.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000001_f2",
+          "weight": 2.7162703941030983,
+          "rot_deg": 0.11198042727907659,
+          "trans_mm": 4.467142790881208,
+          "norm6": 4.4671432184235425,
+          "weighted_norm6": 7.362348589415564,
+          "reproj_mean_px": {
+            "cam_i": 0.6547055940187041,
+            "cam_j": 0.08159812756288465
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000001_f2.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000001_f2.bmp"
+          }
+        }
+      ],
+      "top_by_trans_mm": [
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000014_f15",
+          "weight": 2.26238934664576,
+          "rot_deg": 0.983951853725063,
+          "trans_mm": 35.500068614736875,
+          "norm6": 35.500072768514265,
+          "weighted_norm6": 53.3965154565615,
+          "reproj_mean_px": {
+            "cam_i": 0.6393374938770341,
+            "cam_j": 0.2446836419920944
+          },
+          "n_tags": {
+            "cam_i": 5,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000014_f15.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000014_f15.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000003_f4",
+          "weight": 1.5773689425885578,
+          "rot_deg": 0.9541571813126852,
+          "trans_mm": 33.760402852903894,
+          "norm6": 33.760406960208755,
+          "weighted_norm6": 42.40082588902948,
+          "reproj_mean_px": {
+            "cam_i": 1.1834920822845323,
+            "cam_j": 0.084442099757799
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000003_f4.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000003_f4.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000000_f1",
+          "weight": 2.105430936087918,
+          "rot_deg": 0.3693747236577589,
+          "trans_mm": 12.983006469557957,
+          "norm6": 12.983008070161544,
+          "weighted_norm6": 18.838478637815935,
+          "reproj_mean_px": {
+            "cam_i": 0.8663026547197149,
+            "cam_j": 0.0836216414038054
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000000_f1.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000000_f1.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000015_f16",
+          "weight": 4.5947017073733205,
+          "rot_deg": 0.2643757670451135,
+          "trans_mm": 11.772173447550092,
+          "norm6": 11.772174351847653,
+          "weighted_norm6": 25.23395629318978,
+          "reproj_mean_px": {
+            "cam_i": 0.3390194599181812,
+            "cam_j": 0.09626451004890321
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000015_f16.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000015_f16.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000002_f3",
+          "weight": 1.6749909283041038,
+          "rot_deg": 0.21347230631806446,
+          "trans_mm": 7.749876037828501,
+          "norm6": 7.749876933426352,
+          "weighted_norm6": 10.030002370788345,
+          "reproj_mean_px": {
+            "cam_i": 1.1189493572477371,
+            "cam_j": 0.07508696032501647
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000002_f3.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000002_f3.bmp"
+          }
+        },
+        {
+          "pair": "cam2__cam3",
+          "cam_i": "cam2",
+          "cam_j": "cam3",
+          "frame_key": "seq000001_f2",
+          "weight": 2.7162703941030983,
+          "rot_deg": 0.11198042727907659,
+          "trans_mm": 4.467142790881208,
+          "norm6": 4.4671432184235425,
+          "weighted_norm6": 7.362348589415564,
+          "reproj_mean_px": {
+            "cam_i": 0.6547055940187041,
+            "cam_j": 0.08159812756288465
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam2\\cam2_seq000001_f2.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000001_f2.bmp"
+          }
+        }
+      ]
+    },
+    "cam1__cam3": {
+      "n": 50,
+      "top_by_rot_deg": [
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000070_f71",
+          "weight": 3.0365599472600806,
+          "rot_deg": 10.430796926889125,
+          "trans_mm": 473.57141291203783,
+          "norm6": 473.5714479044778,
+          "weighted_norm6": 825.2327217954321,
+          "reproj_mean_px": {
+            "cam_i": 0.44749068726212937,
+            "cam_j": 0.21114936422265052
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000070_f71.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000036_f37",
+          "weight": 2.1843828757003236,
+          "rot_deg": 0.7463533011633335,
+          "trans_mm": 32.72516001205725,
+          "norm6": 32.72516260463542,
+          "weighted_norm6": 48.366670793978024,
+          "reproj_mean_px": {
+            "cam_i": 0.7788711020763401,
+            "cam_j": 0.13671930208245023
+          },
+          "n_tags": {
+            "cam_i": 9,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000036_f37.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000036_f37.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000084_f85",
+          "weight": 22.14516276794699,
+          "rot_deg": 0.6794410748755421,
+          "trans_mm": 29.388714914748753,
+          "norm6": 29.388717307225484,
+          "weighted_norm6": 138.29932795775832,
+          "reproj_mean_px": {
+            "cam_i": 0.05411930387591485,
+            "cam_j": 0.03619387290934722
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 6
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000084_f85.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000084_f85.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000027_f28",
+          "weight": 13.750113069448739,
+          "rot_deg": 0.664608840744268,
+          "trans_mm": 27.437511524788945,
+          "norm6": 27.437513976742437,
+          "weighted_norm6": 101.74144314118955,
+          "reproj_mean_px": {
+            "cam_i": 0.07001731368547459,
+            "cam_j": 0.07543603567234146
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 34
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000027_f28.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000027_f28.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000030_f31",
+          "weight": 19.496697635220627,
+          "rot_deg": 0.6617778598718707,
+          "trans_mm": 27.51267788549646,
+          "norm6": 27.51268030996372,
+          "weighted_norm6": 121.48241869021743,
+          "reproj_mean_px": {
+            "cam_i": 0.049807597428509764,
+            "cam_j": 0.052773877517637846
+          },
+          "n_tags": {
+            "cam_i": 12,
+            "cam_j": 4
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000030_f31.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000030_f31.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000028_f29",
+          "weight": 15.079883491887323,
+          "rot_deg": 0.6372154825091095,
+          "trans_mm": 26.42049550289831,
+          "norm6": 26.420497843655685,
+          "weighted_norm6": 102.59825867657536,
+          "reproj_mean_px": {
+            "cam_i": 0.056146280121384125,
+            "cam_j": 0.07648073925021515
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000028_f29.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000028_f29.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000026_f27",
+          "weight": 8.074108744707578,
+          "rot_deg": 0.6337170120119966,
+          "trans_mm": 28.82425310816168,
+          "norm6": 28.824255230220377,
+          "weighted_norm6": 81.90405273761111,
+          "reproj_mean_px": {
+            "cam_i": 0.11522281656451415,
+            "cam_j": 0.13248254178986288
+          },
+          "n_tags": {
+            "cam_i": 8,
+            "cam_j": 24
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000026_f27.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000026_f27.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000034_f35",
+          "weight": 14.207186916073054,
+          "rot_deg": 0.6262092907995014,
+          "trans_mm": 26.419457677001407,
+          "norm6": 26.41945993768528,
+          "weighted_norm6": 99.5813438373848,
+          "reproj_mean_px": {
+            "cam_i": 0.0562583286485977,
+            "cam_j": 0.08451549320753167
+          },
+          "n_tags": {
+            "cam_i": 32,
+            "cam_j": 26
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000034_f35.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000034_f35.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000086_f87",
+          "weight": 17.217883055365384,
+          "rot_deg": 0.5948076417026229,
+          "trans_mm": 26.150778053171685,
+          "norm6": 26.15078011376927,
+          "weighted_norm6": 108.51118990627677,
+          "reproj_mean_px": {
+            "cam_i": 0.06657137525293914,
+            "cam_j": 0.04958692327707476
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 34
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000086_f87.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000086_f87.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000032_f33",
+          "weight": 19.651142487591482,
+          "rot_deg": 0.5868867213890211,
+          "trans_mm": 24.731824039075477,
+          "norm6": 24.7318261602536,
+          "weighted_norm6": 109.63521876312244,
+          "reproj_mean_px": {
+            "cam_i": 0.04925771424075728,
+            "cam_j": 0.05251753883996715
+          },
+          "n_tags": {
+            "cam_i": 18,
+            "cam_j": 29
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000032_f33.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000032_f33.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000064_f65",
+          "weight": 8.90918159687779,
+          "rot_deg": 0.5785529430998567,
+          "trans_mm": 25.682556816264213,
+          "norm6": 25.682558801319832,
+          "weighted_norm6": 76.65794923691669,
+          "reproj_mean_px": {
+            "cam_i": 0.04260228657427437,
+            "cam_j": 0.18188522423153264
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000064_f65.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000064_f65.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000033_f34",
+          "weight": 12.236624223220943,
+          "rot_deg": 0.5762437787178181,
+          "trans_mm": 24.788418237077146,
+          "norm6": 24.788420277350724,
+          "weighted_norm6": 86.71209169435896,
+          "reproj_mean_px": {
+            "cam_i": 0.09663301771391532,
+            "cam_j": 0.0668107526851692
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000033_f34.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000033_f34.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000087_f88",
+          "weight": 18.500217136479154,
+          "rot_deg": 0.5694557545927386,
+          "trans_mm": 25.13392236980893,
+          "norm6": 25.13392433490789,
+          "weighted_norm6": 108.10573060173584,
+          "reproj_mean_px": {
+            "cam_i": 0.06558196494880421,
+            "cam_j": 0.042524874297766246
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 9
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000087_f88.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000088_f89",
+          "weight": 16.81033728355879,
+          "rot_deg": 0.5655555575692853,
+          "trans_mm": 24.866595914409324,
+          "norm6": 24.866597873519833,
+          "weighted_norm6": 101.95407409271859,
+          "reproj_mean_px": {
+            "cam_i": 0.06283758026507012,
+            "cam_j": 0.05613683210178245
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 22
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000088_f89.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000088_f89.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000094_f95",
+          "weight": 16.570445153636882,
+          "rot_deg": 0.553283312038828,
+          "trans_mm": 24.534700116320852,
+          "norm6": 24.53470201669499,
+          "weighted_norm6": 99.87294940799019,
+          "reproj_mean_px": {
+            "cam_i": 0.06322045076765342,
+            "cam_j": 0.05747636705809099
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000094_f95.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000094_f95.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000079_f80",
+          "weight": 17.63045400741125,
+          "rot_deg": 0.551886605887601,
+          "trans_mm": 23.931791990631222,
+          "norm6": 23.93179392905715,
+          "weighted_norm6": 100.48633406835057,
+          "reproj_mean_px": {
+            "cam_i": 0.05270566718538781,
+            "cam_j": 0.06073440640314641
+          },
+          "n_tags": {
+            "cam_i": 34,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000079_f80.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000079_f80.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000091_f92",
+          "weight": 17.516466739618764,
+          "rot_deg": 0.5490547717064844,
+          "trans_mm": 24.336593435879266,
+          "norm6": 24.33659532255071,
+          "weighted_norm6": 101.85516929396593,
+          "reproj_mean_px": {
+            "cam_i": 0.06768172183031576,
+            "cam_j": 0.046496555657369466
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 16
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000091_f92.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000091_f92.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000090_f91",
+          "weight": 19.60360666531457,
+          "rot_deg": 0.5407665431353319,
+          "trans_mm": 23.87034622210858,
+          "norm6": 23.87034808799684,
+          "weighted_norm6": 105.68825859206453,
+          "reproj_mean_px": {
+            "cam_i": 0.06047357980418497,
+            "cam_j": 0.04154846308543689
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 2
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000090_f91.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000090_f91.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000085_f86",
+          "weight": 18.82324528255239,
+          "rot_deg": 0.5386336341708944,
+          "trans_mm": 23.674211605940002,
+          "norm6": 23.67421347247499,
+          "weighted_norm6": 102.71238414375854,
+          "reproj_mean_px": {
+            "cam_i": 0.058056412651688385,
+            "cam_j": 0.04819519114873792
+          },
+          "n_tags": {
+            "cam_i": 21,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000085_f86.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000085_f86.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000037_f38",
+          "weight": 12.236724948562188,
+          "rot_deg": 0.5312678447823869,
+          "trans_mm": 22.26449657532371,
+          "norm6": 22.26449850613088,
+          "weighted_norm6": 77.8835101314716,
+          "reproj_mean_px": {
+            "cam_i": 0.057931251842997154,
+            "cam_j": 0.1055111731855232
+          },
+          "n_tags": {
+            "cam_i": 35,
+            "cam_j": 19
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000037_f38.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000037_f38.bmp"
+          }
+        }
+      ],
+      "top_by_trans_mm": [
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000070_f71",
+          "weight": 3.0365599472600806,
+          "rot_deg": 10.430796926889125,
+          "trans_mm": 473.57141291203783,
+          "norm6": 473.5714479044778,
+          "weighted_norm6": 825.2327217954321,
+          "reproj_mean_px": {
+            "cam_i": 0.44749068726212937,
+            "cam_j": 0.21114936422265052
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000070_f71.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000036_f37",
+          "weight": 2.1843828757003236,
+          "rot_deg": 0.7463533011633335,
+          "trans_mm": 32.72516001205725,
+          "norm6": 32.72516260463542,
+          "weighted_norm6": 48.366670793978024,
+          "reproj_mean_px": {
+            "cam_i": 0.7788711020763401,
+            "cam_j": 0.13671930208245023
+          },
+          "n_tags": {
+            "cam_i": 9,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000036_f37.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000036_f37.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000084_f85",
+          "weight": 22.14516276794699,
+          "rot_deg": 0.6794410748755421,
+          "trans_mm": 29.388714914748753,
+          "norm6": 29.388717307225484,
+          "weighted_norm6": 138.29932795775832,
+          "reproj_mean_px": {
+            "cam_i": 0.05411930387591485,
+            "cam_j": 0.03619387290934722
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 6
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000084_f85.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000084_f85.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000026_f27",
+          "weight": 8.074108744707578,
+          "rot_deg": 0.6337170120119966,
+          "trans_mm": 28.82425310816168,
+          "norm6": 28.824255230220377,
+          "weighted_norm6": 81.90405273761111,
+          "reproj_mean_px": {
+            "cam_i": 0.11522281656451415,
+            "cam_j": 0.13248254178986288
+          },
+          "n_tags": {
+            "cam_i": 8,
+            "cam_j": 24
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000026_f27.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000026_f27.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000030_f31",
+          "weight": 19.496697635220627,
+          "rot_deg": 0.6617778598718707,
+          "trans_mm": 27.51267788549646,
+          "norm6": 27.51268030996372,
+          "weighted_norm6": 121.48241869021743,
+          "reproj_mean_px": {
+            "cam_i": 0.049807597428509764,
+            "cam_j": 0.052773877517637846
+          },
+          "n_tags": {
+            "cam_i": 12,
+            "cam_j": 4
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000030_f31.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000030_f31.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000027_f28",
+          "weight": 13.750113069448739,
+          "rot_deg": 0.664608840744268,
+          "trans_mm": 27.437511524788945,
+          "norm6": 27.437513976742437,
+          "weighted_norm6": 101.74144314118955,
+          "reproj_mean_px": {
+            "cam_i": 0.07001731368547459,
+            "cam_j": 0.07543603567234146
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 34
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000027_f28.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000027_f28.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000028_f29",
+          "weight": 15.079883491887323,
+          "rot_deg": 0.6372154825091095,
+          "trans_mm": 26.42049550289831,
+          "norm6": 26.420497843655685,
+          "weighted_norm6": 102.59825867657536,
+          "reproj_mean_px": {
+            "cam_i": 0.056146280121384125,
+            "cam_j": 0.07648073925021515
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000028_f29.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000028_f29.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000034_f35",
+          "weight": 14.207186916073054,
+          "rot_deg": 0.6262092907995014,
+          "trans_mm": 26.419457677001407,
+          "norm6": 26.41945993768528,
+          "weighted_norm6": 99.5813438373848,
+          "reproj_mean_px": {
+            "cam_i": 0.0562583286485977,
+            "cam_j": 0.08451549320753167
+          },
+          "n_tags": {
+            "cam_i": 32,
+            "cam_j": 26
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000034_f35.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000034_f35.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000086_f87",
+          "weight": 17.217883055365384,
+          "rot_deg": 0.5948076417026229,
+          "trans_mm": 26.150778053171685,
+          "norm6": 26.15078011376927,
+          "weighted_norm6": 108.51118990627677,
+          "reproj_mean_px": {
+            "cam_i": 0.06657137525293914,
+            "cam_j": 0.04958692327707476
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 34
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000086_f87.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000086_f87.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000064_f65",
+          "weight": 8.90918159687779,
+          "rot_deg": 0.5785529430998567,
+          "trans_mm": 25.682556816264213,
+          "norm6": 25.682558801319832,
+          "weighted_norm6": 76.65794923691669,
+          "reproj_mean_px": {
+            "cam_i": 0.04260228657427437,
+            "cam_j": 0.18188522423153264
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000064_f65.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000064_f65.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000087_f88",
+          "weight": 18.500217136479154,
+          "rot_deg": 0.5694557545927386,
+          "trans_mm": 25.13392236980893,
+          "norm6": 25.13392433490789,
+          "weighted_norm6": 108.10573060173584,
+          "reproj_mean_px": {
+            "cam_i": 0.06558196494880421,
+            "cam_j": 0.042524874297766246
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 9
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000087_f88.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000088_f89",
+          "weight": 16.81033728355879,
+          "rot_deg": 0.5655555575692853,
+          "trans_mm": 24.866595914409324,
+          "norm6": 24.866597873519833,
+          "weighted_norm6": 101.95407409271859,
+          "reproj_mean_px": {
+            "cam_i": 0.06283758026507012,
+            "cam_j": 0.05613683210178245
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 22
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000088_f89.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000088_f89.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000033_f34",
+          "weight": 12.236624223220943,
+          "rot_deg": 0.5762437787178181,
+          "trans_mm": 24.788418237077146,
+          "norm6": 24.788420277350724,
+          "weighted_norm6": 86.71209169435896,
+          "reproj_mean_px": {
+            "cam_i": 0.09663301771391532,
+            "cam_j": 0.0668107526851692
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000033_f34.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000033_f34.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000032_f33",
+          "weight": 19.651142487591482,
+          "rot_deg": 0.5868867213890211,
+          "trans_mm": 24.731824039075477,
+          "norm6": 24.7318261602536,
+          "weighted_norm6": 109.63521876312244,
+          "reproj_mean_px": {
+            "cam_i": 0.04925771424075728,
+            "cam_j": 0.05251753883996715
+          },
+          "n_tags": {
+            "cam_i": 18,
+            "cam_j": 29
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000032_f33.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000032_f33.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000094_f95",
+          "weight": 16.570445153636882,
+          "rot_deg": 0.553283312038828,
+          "trans_mm": 24.534700116320852,
+          "norm6": 24.53470201669499,
+          "weighted_norm6": 99.87294940799019,
+          "reproj_mean_px": {
+            "cam_i": 0.06322045076765342,
+            "cam_j": 0.05747636705809099
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000094_f95.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000094_f95.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000091_f92",
+          "weight": 17.516466739618764,
+          "rot_deg": 0.5490547717064844,
+          "trans_mm": 24.336593435879266,
+          "norm6": 24.33659532255071,
+          "weighted_norm6": 101.85516929396593,
+          "reproj_mean_px": {
+            "cam_i": 0.06768172183031576,
+            "cam_j": 0.046496555657369466
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 16
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000091_f92.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000091_f92.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000079_f80",
+          "weight": 17.63045400741125,
+          "rot_deg": 0.551886605887601,
+          "trans_mm": 23.931791990631222,
+          "norm6": 23.93179392905715,
+          "weighted_norm6": 100.48633406835057,
+          "reproj_mean_px": {
+            "cam_i": 0.05270566718538781,
+            "cam_j": 0.06073440640314641
+          },
+          "n_tags": {
+            "cam_i": 34,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000079_f80.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000079_f80.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000090_f91",
+          "weight": 19.60360666531457,
+          "rot_deg": 0.5407665431353319,
+          "trans_mm": 23.87034622210858,
+          "norm6": 23.87034808799684,
+          "weighted_norm6": 105.68825859206453,
+          "reproj_mean_px": {
+            "cam_i": 0.06047357980418497,
+            "cam_j": 0.04154846308543689
+          },
+          "n_tags": {
+            "cam_i": 36,
+            "cam_j": 2
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000090_f91.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000090_f91.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000082_f83",
+          "weight": 4.919327826983848,
+          "rot_deg": 0.5029706478012057,
+          "trans_mm": 23.764565292014655,
+          "norm6": 23.76456691337719,
+          "weighted_norm6": 52.70875846408578,
+          "reproj_mean_px": {
+            "cam_i": 0.3573651044190333,
+            "cam_j": 0.04919450501164084
+          },
+          "n_tags": {
+            "cam_i": 19,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000082_f83.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000082_f83.bmp"
+          }
+        },
+        {
+          "pair": "cam1__cam3",
+          "cam_i": "cam1",
+          "cam_j": "cam3",
+          "frame_key": "seq000085_f86",
+          "weight": 18.82324528255239,
+          "rot_deg": 0.5386336341708944,
+          "trans_mm": 23.674211605940002,
+          "norm6": 23.67421347247499,
+          "weighted_norm6": 102.71238414375854,
+          "reproj_mean_px": {
+            "cam_i": 0.058056412651688385,
+            "cam_j": 0.04819519114873792
+          },
+          "n_tags": {
+            "cam_i": 21,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam1\\cam1_seq000085_f86.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000085_f86.bmp"
+          }
+        }
+      ]
+    },
+    "cam0__cam1": {
+      "n": 33,
+      "top_by_rot_deg": [
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000070_f71",
+          "weight": 3.646830575696979,
+          "rot_deg": 10.328450680025046,
+          "trans_mm": 469.679755454882,
+          "norm6": 469.6797900482815,
+          "weighted_norm6": 896.9323061084824,
+          "reproj_mean_px": {
+            "cam_i": 0.10093073196373141,
+            "cam_j": 0.44749068726212937
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 3
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000070_f71.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000060_f61",
+          "weight": 1.4791700395468304,
+          "rot_deg": 2.207352144001222,
+          "trans_mm": 90.1943258771615,
+          "norm6": 90.19433410505665,
+          "weighted_norm6": 109.69537253568217,
+          "reproj_mean_px": {
+            "cam_i": 1.2558954451406386,
+            "cam_j": 0.09621414775831916
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000060_f61.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000061_f62",
+          "weight": 2.838217114868399,
+          "rot_deg": 0.9980322774539135,
+          "trans_mm": 49.025944458722805,
+          "norm6": 49.02594755320459,
+          "weighted_norm6": 82.59405785576439,
+          "reproj_mean_px": {
+            "cam_i": 0.4555901994702825,
+            "cam_j": 0.24907752644917547
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 33
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000061_f62.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000061_f62.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000064_f65",
+          "weight": 11.285606699175482,
+          "rot_deg": 0.9205290341786344,
+          "trans_mm": 42.23513132549716,
+          "norm6": 42.2351343813037,
+          "weighted_norm6": 141.884951444727,
+          "reproj_mean_px": {
+            "cam_i": 0.13461459270489798,
+            "cam_j": 0.04260228657427437
+          },
+          "n_tags": {
+            "cam_i": 20,
+            "cam_j": 3
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000064_f65.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000064_f65.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000063_f64",
+          "weight": 4.0771021588758565,
+          "rot_deg": 0.9004179831931177,
+          "trans_mm": 44.132854538671154,
+          "norm6": 44.132857336692524,
+          "weighted_norm6": 89.11233900544413,
+          "reproj_mean_px": {
+            "cam_i": 0.2625036870994362,
+            "cam_j": 0.22804080309588487
+          },
+          "n_tags": {
+            "cam_i": 25,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000063_f64.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000062_f63",
+          "weight": 2.4731962811273003,
+          "rot_deg": 0.8781611254426325,
+          "trans_mm": 47.49552447160713,
+          "norm6": 47.49552694458629,
+          "weighted_norm6": 74.69336113803129,
+          "reproj_mean_px": {
+            "cam_i": 0.7001027600456382,
+            "cam_j": 0.1085673868657853
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 14
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000062_f63.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000087_f88",
+          "weight": 16.07747261561435,
+          "rot_deg": 0.7954039477983446,
+          "trans_mm": 35.770843449102564,
+          "norm6": 35.770846142937785,
+          "weighted_norm6": 143.42937388080946,
+          "reproj_mean_px": {
+            "cam_i": 0.058815696786760595,
+            "cam_j": 0.06558196494880421
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000087_f88.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000093_f94",
+          "weight": 7.426443552005719,
+          "rot_deg": 0.763610702459182,
+          "trans_mm": 32.57710356911353,
+          "norm6": 32.57710629530444,
+          "weighted_norm6": 88.77750737412964,
+          "reproj_mean_px": {
+            "cam_i": 0.2193111848259926,
+            "cam_j": 0.049996726288452496
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000093_f94.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000093_f94.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000068_f69",
+          "weight": 11.963586244879988,
+          "rot_deg": 0.7236213352042737,
+          "trans_mm": 29.469630434964788,
+          "norm6": 29.469633141244962,
+          "weighted_norm6": 101.93079743773673,
+          "reproj_mean_px": {
+            "cam_i": 0.10298880124300558,
+            "cam_j": 0.06418515137140658
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 12
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000068_f69.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000068_f69.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000086_f87",
+          "weight": 14.103403966943562,
+          "rot_deg": 0.7208330636960721,
+          "trans_mm": 32.466575544393656,
+          "norm6": 32.466577981966694,
+          "weighted_norm6": 121.92660710286427,
+          "reproj_mean_px": {
+            "cam_i": 0.0752383612254121,
+            "cam_j": 0.06657137525293914
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000086_f87.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000086_f87.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000077_f78",
+          "weight": 6.877647793038829,
+          "rot_deg": 0.7128299913620315,
+          "trans_mm": 36.81352748882542,
+          "norm6": 36.81352959109895,
+          "weighted_norm6": 96.54447480776449,
+          "reproj_mean_px": {
+            "cam_i": 0.23792713712492805,
+            "cam_j": 0.05286995807152681
+          },
+          "n_tags": {
+            "cam_i": 25,
+            "cam_j": 12
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000077_f78.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000077_f78.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000079_f80",
+          "weight": 10.956668177734993,
+          "rot_deg": 0.7103886552493482,
+          "trans_mm": 32.97857233670187,
+          "norm6": 32.97857466739399,
+          "weighted_norm6": 109.16191257942643,
+          "reproj_mean_px": {
+            "cam_i": 0.12983157566588271,
+            "cam_j": 0.05270566718538781
+          },
+          "n_tags": {
+            "cam_i": 9,
+            "cam_j": 34
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000079_f80.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000079_f80.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000081_f82",
+          "weight": 13.73864503735286,
+          "rot_deg": 0.7102642671719571,
+          "trans_mm": 32.514474225489444,
+          "norm6": 32.514476588621115,
+          "weighted_norm6": 120.51711275267571,
+          "reproj_mean_px": {
+            "cam_i": 0.09123087277568839,
+            "cam_j": 0.05434389056977735
+          },
+          "n_tags": {
+            "cam_i": 5,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000081_f82.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000081_f82.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000080_f81",
+          "weight": 12.07789381202245,
+          "rot_deg": 0.6957251476138181,
+          "trans_mm": 32.14820989874109,
+          "norm6": 32.14821219194848,
+          "weighted_norm6": 111.72553158639762,
+          "reproj_mean_px": {
+            "cam_i": 0.1171951012296163,
+            "cam_j": 0.04839668415345942
+          },
+          "n_tags": {
+            "cam_i": 6,
+            "cam_j": 29
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000080_f81.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000080_f81.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000102_f103",
+          "weight": 11.03190897108285,
+          "rot_deg": 0.6661747860441507,
+          "trans_mm": 30.89435865885232,
+          "norm6": 30.894360846724382,
+          "weighted_norm6": 102.61351148280686,
+          "reproj_mean_px": {
+            "cam_i": 0.11357541230874145,
+            "cam_j": 0.06771687402560524
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000102_f103.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000102_f103.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000092_f93",
+          "weight": 12.452077012695852,
+          "rot_deg": 0.6219791591228172,
+          "trans_mm": 24.148808781916422,
+          "norm6": 24.14881122186498,
+          "weighted_norm6": 85.21511913960161,
+          "reproj_mean_px": {
+            "cam_i": 0.11113389925427869,
+            "cam_j": 0.04948187576549076
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000092_f93.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000092_f93.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000085_f86",
+          "weight": 14.253209375446314,
+          "rot_deg": 0.6155447420165573,
+          "trans_mm": 28.04950419787284,
+          "norm6": 28.04950625527308,
+          "weighted_norm6": 105.8964870631894,
+          "reproj_mean_px": {
+            "cam_i": 0.08226286192834799,
+            "cam_j": 0.058056412651688385
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 21
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000085_f86.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000085_f86.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000101_f102",
+          "weight": 9.720705727078714,
+          "rot_deg": 0.6146291676061042,
+          "trans_mm": 28.011110811805032,
+          "norm6": 28.011112865900973,
+          "weighted_norm6": 87.3331774576625,
+          "reproj_mean_px": {
+            "cam_i": 0.14170218487450967,
+            "cam_j": 0.06404419364496887
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000101_f102.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000101_f102.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000078_f79",
+          "weight": 7.265959122979866,
+          "rot_deg": 0.6069988262283783,
+          "trans_mm": 30.21659346480012,
+          "norm6": 30.21659532198409,
+          "weighted_norm6": 81.45017156424257,
+          "reproj_mean_px": {
+            "cam_i": 0.20584273483453513,
+            "cam_j": 0.06941342421467428
+          },
+          "n_tags": {
+            "cam_i": 16,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000078_f79.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000078_f79.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000082_f83",
+          "weight": 3.981248688483893,
+          "rot_deg": 0.5204927537929696,
+          "trans_mm": 22.55284700766242,
+          "norm6": 22.55284883724798,
+          "weighted_norm6": 44.99984960586116,
+          "reproj_mean_px": {
+            "cam_i": 0.14498984913741575,
+            "cam_j": 0.3573651044190333
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 19
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000082_f83.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000082_f83.bmp"
+          }
+        }
+      ],
+      "top_by_trans_mm": [
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000070_f71",
+          "weight": 3.646830575696979,
+          "rot_deg": 10.328450680025046,
+          "trans_mm": 469.679755454882,
+          "norm6": 469.6797900482815,
+          "weighted_norm6": 896.9323061084824,
+          "reproj_mean_px": {
+            "cam_i": 0.10093073196373141,
+            "cam_j": 0.44749068726212937
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 3
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000070_f71.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000070_f71.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000060_f61",
+          "weight": 1.4791700395468304,
+          "rot_deg": 2.207352144001222,
+          "trans_mm": 90.1943258771615,
+          "norm6": 90.19433410505665,
+          "weighted_norm6": 109.69537253568217,
+          "reproj_mean_px": {
+            "cam_i": 1.2558954451406386,
+            "cam_j": 0.09621414775831916
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000060_f61.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000061_f62",
+          "weight": 2.838217114868399,
+          "rot_deg": 0.9980322774539135,
+          "trans_mm": 49.025944458722805,
+          "norm6": 49.02594755320459,
+          "weighted_norm6": 82.59405785576439,
+          "reproj_mean_px": {
+            "cam_i": 0.4555901994702825,
+            "cam_j": 0.24907752644917547
+          },
+          "n_tags": {
+            "cam_i": 7,
+            "cam_j": 33
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000061_f62.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000061_f62.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000062_f63",
+          "weight": 2.4731962811273003,
+          "rot_deg": 0.8781611254426325,
+          "trans_mm": 47.49552447160713,
+          "norm6": 47.49552694458629,
+          "weighted_norm6": 74.69336113803129,
+          "reproj_mean_px": {
+            "cam_i": 0.7001027600456382,
+            "cam_j": 0.1085673868657853
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 14
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000062_f63.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000063_f64",
+          "weight": 4.0771021588758565,
+          "rot_deg": 0.9004179831931177,
+          "trans_mm": 44.132854538671154,
+          "norm6": 44.132857336692524,
+          "weighted_norm6": 89.11233900544413,
+          "reproj_mean_px": {
+            "cam_i": 0.2625036870994362,
+            "cam_j": 0.22804080309588487
+          },
+          "n_tags": {
+            "cam_i": 25,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000063_f64.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000064_f65",
+          "weight": 11.285606699175482,
+          "rot_deg": 0.9205290341786344,
+          "trans_mm": 42.23513132549716,
+          "norm6": 42.2351343813037,
+          "weighted_norm6": 141.884951444727,
+          "reproj_mean_px": {
+            "cam_i": 0.13461459270489798,
+            "cam_j": 0.04260228657427437
+          },
+          "n_tags": {
+            "cam_i": 20,
+            "cam_j": 3
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000064_f65.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000064_f65.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000077_f78",
+          "weight": 6.877647793038829,
+          "rot_deg": 0.7128299913620315,
+          "trans_mm": 36.81352748882542,
+          "norm6": 36.81352959109895,
+          "weighted_norm6": 96.54447480776449,
+          "reproj_mean_px": {
+            "cam_i": 0.23792713712492805,
+            "cam_j": 0.05286995807152681
+          },
+          "n_tags": {
+            "cam_i": 25,
+            "cam_j": 12
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000077_f78.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000077_f78.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000087_f88",
+          "weight": 16.07747261561435,
+          "rot_deg": 0.7954039477983446,
+          "trans_mm": 35.770843449102564,
+          "norm6": 35.770846142937785,
+          "weighted_norm6": 143.42937388080946,
+          "reproj_mean_px": {
+            "cam_i": 0.058815696786760595,
+            "cam_j": 0.06558196494880421
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000087_f88.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000087_f88.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000079_f80",
+          "weight": 10.956668177734993,
+          "rot_deg": 0.7103886552493482,
+          "trans_mm": 32.97857233670187,
+          "norm6": 32.97857466739399,
+          "weighted_norm6": 109.16191257942643,
+          "reproj_mean_px": {
+            "cam_i": 0.12983157566588271,
+            "cam_j": 0.05270566718538781
+          },
+          "n_tags": {
+            "cam_i": 9,
+            "cam_j": 34
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000079_f80.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000079_f80.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000093_f94",
+          "weight": 7.426443552005719,
+          "rot_deg": 0.763610702459182,
+          "trans_mm": 32.57710356911353,
+          "norm6": 32.57710629530444,
+          "weighted_norm6": 88.77750737412964,
+          "reproj_mean_px": {
+            "cam_i": 0.2193111848259926,
+            "cam_j": 0.049996726288452496
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000093_f94.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000093_f94.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000081_f82",
+          "weight": 13.73864503735286,
+          "rot_deg": 0.7102642671719571,
+          "trans_mm": 32.514474225489444,
+          "norm6": 32.514476588621115,
+          "weighted_norm6": 120.51711275267571,
+          "reproj_mean_px": {
+            "cam_i": 0.09123087277568839,
+            "cam_j": 0.05434389056977735
+          },
+          "n_tags": {
+            "cam_i": 5,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000081_f82.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000081_f82.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000086_f87",
+          "weight": 14.103403966943562,
+          "rot_deg": 0.7208330636960721,
+          "trans_mm": 32.466575544393656,
+          "norm6": 32.466577981966694,
+          "weighted_norm6": 121.92660710286427,
+          "reproj_mean_px": {
+            "cam_i": 0.0752383612254121,
+            "cam_j": 0.06657137525293914
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000086_f87.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000086_f87.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000080_f81",
+          "weight": 12.07789381202245,
+          "rot_deg": 0.6957251476138181,
+          "trans_mm": 32.14820989874109,
+          "norm6": 32.14821219194848,
+          "weighted_norm6": 111.72553158639762,
+          "reproj_mean_px": {
+            "cam_i": 0.1171951012296163,
+            "cam_j": 0.04839668415345942
+          },
+          "n_tags": {
+            "cam_i": 6,
+            "cam_j": 29
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000080_f81.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000080_f81.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000102_f103",
+          "weight": 11.03190897108285,
+          "rot_deg": 0.6661747860441507,
+          "trans_mm": 30.89435865885232,
+          "norm6": 30.894360846724382,
+          "weighted_norm6": 102.61351148280686,
+          "reproj_mean_px": {
+            "cam_i": 0.11357541230874145,
+            "cam_j": 0.06771687402560524
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000102_f103.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000102_f103.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000078_f79",
+          "weight": 7.265959122979866,
+          "rot_deg": 0.6069988262283783,
+          "trans_mm": 30.21659346480012,
+          "norm6": 30.21659532198409,
+          "weighted_norm6": 81.45017156424257,
+          "reproj_mean_px": {
+            "cam_i": 0.20584273483453513,
+            "cam_j": 0.06941342421467428
+          },
+          "n_tags": {
+            "cam_i": 16,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000078_f79.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000078_f79.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000068_f69",
+          "weight": 11.963586244879988,
+          "rot_deg": 0.7236213352042737,
+          "trans_mm": 29.469630434964788,
+          "norm6": 29.469633141244962,
+          "weighted_norm6": 101.93079743773673,
+          "reproj_mean_px": {
+            "cam_i": 0.10298880124300558,
+            "cam_j": 0.06418515137140658
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 12
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000068_f69.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000068_f69.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000085_f86",
+          "weight": 14.253209375446314,
+          "rot_deg": 0.6155447420165573,
+          "trans_mm": 28.04950419787284,
+          "norm6": 28.04950625527308,
+          "weighted_norm6": 105.8964870631894,
+          "reproj_mean_px": {
+            "cam_i": 0.08226286192834799,
+            "cam_j": 0.058056412651688385
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 21
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000085_f86.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000085_f86.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000101_f102",
+          "weight": 9.720705727078714,
+          "rot_deg": 0.6146291676061042,
+          "trans_mm": 28.011110811805032,
+          "norm6": 28.011112865900973,
+          "weighted_norm6": 87.3331774576625,
+          "reproj_mean_px": {
+            "cam_i": 0.14170218487450967,
+            "cam_j": 0.06404419364496887
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000101_f102.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000101_f102.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000092_f93",
+          "weight": 12.452077012695852,
+          "rot_deg": 0.6219791591228172,
+          "trans_mm": 24.148808781916422,
+          "norm6": 24.14881122186498,
+          "weighted_norm6": 85.21511913960161,
+          "reproj_mean_px": {
+            "cam_i": 0.11113389925427869,
+            "cam_j": 0.04948187576549076
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000092_f93.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000092_f93.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam1",
+          "cam_i": "cam0",
+          "cam_j": "cam1",
+          "frame_key": "seq000069_f70",
+          "weight": 16.82658545940047,
+          "rot_deg": 0.518808522420338,
+          "trans_mm": 22.772834002313584,
+          "norm6": 22.77283580251809,
+          "weighted_norm6": 93.41467615939274,
+          "reproj_mean_px": {
+            "cam_i": 0.0912202850183167,
+            "cam_j": 0.027639242651491376
+          },
+          "n_tags": {
+            "cam_i": 25,
+            "cam_j": 2
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000069_f70.bmp",
+            "cam_j": "images\\filtered\\cam1\\cam1_seq000069_f70.bmp"
+          }
+        }
+      ]
+    },
+    "cam0__cam3": {
+      "n": 31,
+      "top_by_rot_deg": [
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000060_f61",
+          "weight": 1.496034980838822,
+          "rot_deg": 2.5900293749805074,
+          "trans_mm": 99.95564229681963,
+          "norm6": 99.95565251860559,
+          "weighted_norm6": 122.25826628062109,
+          "reproj_mean_px": {
+            "cam_i": 1.2558954451406386,
+            "cam_j": 0.08097169073248547
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000060_f61.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000062_f63",
+          "weight": 2.508642090421668,
+          "rot_deg": 1.133922297685562,
+          "trans_mm": 60.01763756469314,
+          "norm6": 60.01764082765819,
+          "weighted_norm6": 95.06010124619687,
+          "reproj_mean_px": {
+            "cam_i": 0.7001027600456382,
+            "cam_j": 0.09714129785973942
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 11
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000062_f63.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000103_f104",
+          "weight": 10.748145391042351,
+          "rot_deg": 0.9709668869436348,
+          "trans_mm": 57.37960337460436,
+          "norm6": 57.379605877115544,
+          "weighted_norm6": 188.11538994458908,
+          "reproj_mean_px": {
+            "cam_i": 0.12950675151009616,
+            "cam_j": 0.056571862728489304
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 4
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000103_f104.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000103_f104.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000063_f64",
+          "weight": 6.463456981760972,
+          "rot_deg": 0.77368362270189,
+          "trans_mm": 39.18738641157311,
+          "norm6": 39.18738873808478,
+          "weighted_norm6": 99.62739079327021,
+          "reproj_mean_px": {
+            "cam_i": 0.2625036870994362,
+            "cam_j": 0.046928247799138643
+          },
+          "n_tags": {
+            "cam_i": 25,
+            "cam_j": 6
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000063_f64.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000102_f103",
+          "weight": 11.205137532917783,
+          "rot_deg": 0.7414560360668706,
+          "trans_mm": 41.43854910154877,
+          "norm6": 41.43855112219832,
+          "weighted_norm6": 138.71172029330538,
+          "reproj_mean_px": {
+            "cam_i": 0.11357541230874145,
+            "cam_j": 0.06491414162350788
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 18
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000102_f103.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000102_f103.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000101_f102",
+          "weight": 9.907272355860131,
+          "rot_deg": 0.5597499100443594,
+          "trans_mm": 30.546742312811997,
+          "norm6": 30.5467438750525,
+          "weighted_norm6": 96.14838073881636,
+          "reproj_mean_px": {
+            "cam_i": 0.14170218487450967,
+            "cam_j": 0.06016972579492943
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 8
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000101_f102.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000101_f102.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000100_f101",
+          "weight": 10.784553367587764,
+          "rot_deg": 0.4104025604318108,
+          "trans_mm": 22.181209002365495,
+          "norm6": 22.181210158902775,
+          "weighted_norm6": 72.84274755457102,
+          "reproj_mean_px": {
+            "cam_i": 0.12133564068648077,
+            "cam_j": 0.06411478380776513
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000100_f101.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000100_f101.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000079_f80",
+          "weight": 10.495052570691948,
+          "rot_deg": 0.3524841799189282,
+          "trans_mm": 16.505945754021745,
+          "norm6": 16.505946900494056,
+          "weighted_norm6": 53.47277871622597,
+          "reproj_mean_px": {
+            "cam_i": 0.12983157566588271,
+            "cam_j": 0.06073440640314641
+          },
+          "n_tags": {
+            "cam_i": 9,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000079_f80.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000079_f80.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000068_f69",
+          "weight": 12.528269268143472,
+          "rot_deg": 0.3522503334346528,
+          "trans_mm": 15.031810726515232,
+          "norm6": 15.031811983749611,
+          "weighted_norm6": 53.205542351533175,
+          "reproj_mean_px": {
+            "cam_i": 0.10298880124300558,
+            "cam_j": 0.056650168609401995
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 24
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000068_f69.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000068_f69.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000064_f65",
+          "weight": 6.319118978832467,
+          "rot_deg": 0.34901551387360014,
+          "trans_mm": 14.983240067507673,
+          "norm6": 14.983241305757987,
+          "weighted_norm6": 37.66465902541446,
+          "reproj_mean_px": {
+            "cam_i": 0.13461459270489798,
+            "cam_j": 0.18188522423153264
+          },
+          "n_tags": {
+            "cam_i": 20,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000064_f65.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000064_f65.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000099_f100",
+          "weight": 11.585605192944467,
+          "rot_deg": 0.3095031210981057,
+          "trans_mm": 16.018286212211976,
+          "norm6": 16.01828712304495,
+          "weighted_norm6": 54.52245922778618,
+          "reproj_mean_px": {
+            "cam_i": 0.11038391684792226,
+            "cam_j": 0.06224409581886382
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000099_f100.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000099_f100.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000093_f94",
+          "weight": 7.283063305049317,
+          "rot_deg": 0.29501760576415287,
+          "trans_mm": 9.491015693308649,
+          "norm6": 9.491017090023929,
+          "weighted_norm6": 25.613551335809923,
+          "reproj_mean_px": {
+            "cam_i": 0.2193111848259926,
+            "cam_j": 0.0552985386146108
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000093_f94.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000093_f94.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000098_f99",
+          "weight": 11.572129589116548,
+          "rot_deg": 0.2330538987692521,
+          "trans_mm": 13.157970951818191,
+          "norm6": 13.157971580525562,
+          "weighted_norm6": 44.76056792447115,
+          "reproj_mean_px": {
+            "cam_i": 0.10739813102327835,
+            "cam_j": 0.06543090485970869
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 26
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000098_f99.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000098_f99.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000076_f77",
+          "weight": 9.962260461903774,
+          "rot_deg": 0.23248996932593596,
+          "trans_mm": 12.163607705037856,
+          "norm6": 12.163608381854084,
+          "weighted_norm6": 38.39205642929647,
+          "reproj_mean_px": {
+            "cam_i": 0.14232303759671236,
+            "cam_j": 0.0584346125016874
+          },
+          "n_tags": {
+            "cam_i": 29,
+            "cam_j": 29
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000076_f77.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000076_f77.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000072_f73",
+          "weight": 5.876062538530253,
+          "rot_deg": 0.23172599620646633,
+          "trans_mm": 9.233527448888273,
+          "norm6": 9.23352833462895,
+          "weighted_norm6": 22.382618419399442,
+          "reproj_mean_px": {
+            "cam_i": 0.09301388318984039,
+            "cam_j": 0.24735009130595328
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000072_f73.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000072_f73.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000087_f88",
+          "weight": 19.735432498518545,
+          "rot_deg": 0.22822522583897903,
+          "trans_mm": 10.104000641997928,
+          "norm6": 10.104001427158801,
+          "weighted_norm6": 44.886601308821376,
+          "reproj_mean_px": {
+            "cam_i": 0.058815696786760595,
+            "cam_j": 0.042524874297766246
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 9
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000087_f88.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000087_f88.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000094_f95",
+          "weight": 8.428018362718865,
+          "rot_deg": 0.21967608822309662,
+          "trans_mm": 14.358160867833599,
+          "norm6": 14.358161379741095,
+          "weighted_norm6": 41.683249404110754,
+          "reproj_mean_px": {
+            "cam_i": 0.1798273399256232,
+            "cam_j": 0.05747636705809099
+          },
+          "n_tags": {
+            "cam_i": 8,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000094_f95.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000094_f95.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000067_f68",
+          "weight": 12.267245267503322,
+          "rot_deg": 0.21523924505395367,
+          "trans_mm": 7.744786348551643,
+          "norm6": 7.744787259635167,
+          "weighted_norm6": 27.12582883088137,
+          "reproj_mean_px": {
+            "cam_i": 0.10967281853937134,
+            "cam_j": 0.05336296956035154
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 16
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000067_f68.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000067_f68.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000095_f96",
+          "weight": 6.363664417960376,
+          "rot_deg": 0.21052459662259396,
+          "trans_mm": 14.462942361759284,
+          "norm6": 14.462942828497932,
+          "weighted_norm6": 36.48466006376427,
+          "reproj_mean_px": {
+            "cam_i": 0.2496441020450786,
+            "cam_j": 0.06464022670666002
+          },
+          "n_tags": {
+            "cam_i": 15,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000095_f96.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000095_f96.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000071_f72",
+          "weight": 1.7837992124595605,
+          "rot_deg": 0.2080479955895194,
+          "trans_mm": 6.523091383049937,
+          "norm6": 6.5230923936942,
+          "weighted_norm6": 8.712173464221308,
+          "reproj_mean_px": {
+            "cam_i": 1.0345088039306425,
+            "cam_j": 0.08669361954298076
+          },
+          "n_tags": {
+            "cam_i": 29,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000071_f72.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000071_f72.bmp"
+          }
+        }
+      ],
+      "top_by_trans_mm": [
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000060_f61",
+          "weight": 1.496034980838822,
+          "rot_deg": 2.5900293749805074,
+          "trans_mm": 99.95564229681963,
+          "norm6": 99.95565251860559,
+          "weighted_norm6": 122.25826628062109,
+          "reproj_mean_px": {
+            "cam_i": 1.2558954451406386,
+            "cam_j": 0.08097169073248547
+          },
+          "n_tags": {
+            "cam_i": 3,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000060_f61.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000060_f61.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000062_f63",
+          "weight": 2.508642090421668,
+          "rot_deg": 1.133922297685562,
+          "trans_mm": 60.01763756469314,
+          "norm6": 60.01764082765819,
+          "weighted_norm6": 95.06010124619687,
+          "reproj_mean_px": {
+            "cam_i": 0.7001027600456382,
+            "cam_j": 0.09714129785973942
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 11
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000062_f63.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000062_f63.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000103_f104",
+          "weight": 10.748145391042351,
+          "rot_deg": 0.9709668869436348,
+          "trans_mm": 57.37960337460436,
+          "norm6": 57.379605877115544,
+          "weighted_norm6": 188.11538994458908,
+          "reproj_mean_px": {
+            "cam_i": 0.12950675151009616,
+            "cam_j": 0.056571862728489304
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 4
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000103_f104.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000103_f104.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000102_f103",
+          "weight": 11.205137532917783,
+          "rot_deg": 0.7414560360668706,
+          "trans_mm": 41.43854910154877,
+          "norm6": 41.43855112219832,
+          "weighted_norm6": 138.71172029330538,
+          "reproj_mean_px": {
+            "cam_i": 0.11357541230874145,
+            "cam_j": 0.06491414162350788
+          },
+          "n_tags": {
+            "cam_i": 22,
+            "cam_j": 18
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000102_f103.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000102_f103.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000063_f64",
+          "weight": 6.463456981760972,
+          "rot_deg": 0.77368362270189,
+          "trans_mm": 39.18738641157311,
+          "norm6": 39.18738873808478,
+          "weighted_norm6": 99.62739079327021,
+          "reproj_mean_px": {
+            "cam_i": 0.2625036870994362,
+            "cam_j": 0.046928247799138643
+          },
+          "n_tags": {
+            "cam_i": 25,
+            "cam_j": 6
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000063_f64.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000063_f64.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000101_f102",
+          "weight": 9.907272355860131,
+          "rot_deg": 0.5597499100443594,
+          "trans_mm": 30.546742312811997,
+          "norm6": 30.5467438750525,
+          "weighted_norm6": 96.14838073881636,
+          "reproj_mean_px": {
+            "cam_i": 0.14170218487450967,
+            "cam_j": 0.06016972579492943
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 8
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000101_f102.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000101_f102.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000100_f101",
+          "weight": 10.784553367587764,
+          "rot_deg": 0.4104025604318108,
+          "trans_mm": 22.181209002365495,
+          "norm6": 22.181210158902775,
+          "weighted_norm6": 72.84274755457102,
+          "reproj_mean_px": {
+            "cam_i": 0.12133564068648077,
+            "cam_j": 0.06411478380776513
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000100_f101.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000100_f101.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000079_f80",
+          "weight": 10.495052570691948,
+          "rot_deg": 0.3524841799189282,
+          "trans_mm": 16.505945754021745,
+          "norm6": 16.505946900494056,
+          "weighted_norm6": 53.47277871622597,
+          "reproj_mean_px": {
+            "cam_i": 0.12983157566588271,
+            "cam_j": 0.06073440640314641
+          },
+          "n_tags": {
+            "cam_i": 9,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000079_f80.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000079_f80.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000099_f100",
+          "weight": 11.585605192944467,
+          "rot_deg": 0.3095031210981057,
+          "trans_mm": 16.018286212211976,
+          "norm6": 16.01828712304495,
+          "weighted_norm6": 54.52245922778618,
+          "reproj_mean_px": {
+            "cam_i": 0.11038391684792226,
+            "cam_j": 0.06224409581886382
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000099_f100.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000099_f100.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000068_f69",
+          "weight": 12.528269268143472,
+          "rot_deg": 0.3522503334346528,
+          "trans_mm": 15.031810726515232,
+          "norm6": 15.031811983749611,
+          "weighted_norm6": 53.205542351533175,
+          "reproj_mean_px": {
+            "cam_i": 0.10298880124300558,
+            "cam_j": 0.056650168609401995
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 24
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000068_f69.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000068_f69.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000064_f65",
+          "weight": 6.319118978832467,
+          "rot_deg": 0.34901551387360014,
+          "trans_mm": 14.983240067507673,
+          "norm6": 14.983241305757987,
+          "weighted_norm6": 37.66465902541446,
+          "reproj_mean_px": {
+            "cam_i": 0.13461459270489798,
+            "cam_j": 0.18188522423153264
+          },
+          "n_tags": {
+            "cam_i": 20,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000064_f65.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000064_f65.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000095_f96",
+          "weight": 6.363664417960376,
+          "rot_deg": 0.21052459662259396,
+          "trans_mm": 14.462942361759284,
+          "norm6": 14.462942828497932,
+          "weighted_norm6": 36.48466006376427,
+          "reproj_mean_px": {
+            "cam_i": 0.2496441020450786,
+            "cam_j": 0.06464022670666002
+          },
+          "n_tags": {
+            "cam_i": 15,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000095_f96.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000095_f96.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000094_f95",
+          "weight": 8.428018362718865,
+          "rot_deg": 0.21967608822309662,
+          "trans_mm": 14.358160867833599,
+          "norm6": 14.358161379741095,
+          "weighted_norm6": 41.683249404110754,
+          "reproj_mean_px": {
+            "cam_i": 0.1798273399256232,
+            "cam_j": 0.05747636705809099
+          },
+          "n_tags": {
+            "cam_i": 8,
+            "cam_j": 36
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000094_f95.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000094_f95.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000098_f99",
+          "weight": 11.572129589116548,
+          "rot_deg": 0.2330538987692521,
+          "trans_mm": 13.157970951818191,
+          "norm6": 13.157971580525562,
+          "weighted_norm6": 44.76056792447115,
+          "reproj_mean_px": {
+            "cam_i": 0.10739813102327835,
+            "cam_j": 0.06543090485970869
+          },
+          "n_tags": {
+            "cam_i": 24,
+            "cam_j": 26
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000098_f99.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000098_f99.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000076_f77",
+          "weight": 9.962260461903774,
+          "rot_deg": 0.23248996932593596,
+          "trans_mm": 12.163607705037856,
+          "norm6": 12.163608381854084,
+          "weighted_norm6": 38.39205642929647,
+          "reproj_mean_px": {
+            "cam_i": 0.14232303759671236,
+            "cam_j": 0.0584346125016874
+          },
+          "n_tags": {
+            "cam_i": 29,
+            "cam_j": 29
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000076_f77.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000076_f77.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000087_f88",
+          "weight": 19.735432498518545,
+          "rot_deg": 0.22822522583897903,
+          "trans_mm": 10.104000641997928,
+          "norm6": 10.104001427158801,
+          "weighted_norm6": 44.886601308821376,
+          "reproj_mean_px": {
+            "cam_i": 0.058815696786760595,
+            "cam_j": 0.042524874297766246
+          },
+          "n_tags": {
+            "cam_i": 2,
+            "cam_j": 9
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000087_f88.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000087_f88.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000093_f94",
+          "weight": 7.283063305049317,
+          "rot_deg": 0.29501760576415287,
+          "trans_mm": 9.491015693308649,
+          "norm6": 9.491017090023929,
+          "weighted_norm6": 25.613551335809923,
+          "reproj_mean_px": {
+            "cam_i": 0.2193111848259926,
+            "cam_j": 0.0552985386146108
+          },
+          "n_tags": {
+            "cam_i": 4,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000093_f94.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000093_f94.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000072_f73",
+          "weight": 5.876062538530253,
+          "rot_deg": 0.23172599620646633,
+          "trans_mm": 9.233527448888273,
+          "norm6": 9.23352833462895,
+          "weighted_norm6": 22.382618419399442,
+          "reproj_mean_px": {
+            "cam_i": 0.09301388318984039,
+            "cam_j": 0.24735009130595328
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 27
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000072_f73.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000072_f73.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000070_f71",
+          "weight": 6.408611200906419,
+          "rot_deg": 0.20450737079801545,
+          "trans_mm": 7.8512055179039795,
+          "norm6": 7.851206329250358,
+          "weighted_norm6": 19.875513279099238,
+          "reproj_mean_px": {
+            "cam_i": 0.10093073196373141,
+            "cam_j": 0.21114936422265052
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 35
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000070_f71.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000070_f71.bmp"
+          }
+        },
+        {
+          "pair": "cam0__cam3",
+          "cam_i": "cam0",
+          "cam_j": "cam3",
+          "frame_key": "seq000067_f68",
+          "weight": 12.267245267503322,
+          "rot_deg": 0.21523924505395367,
+          "trans_mm": 7.744786348551643,
+          "norm6": 7.744787259635167,
+          "weighted_norm6": 27.12582883088137,
+          "reproj_mean_px": {
+            "cam_i": 0.10967281853937134,
+            "cam_j": 0.05336296956035154
+          },
+          "n_tags": {
+            "cam_i": 30,
+            "cam_j": 16
+          },
+          "image_path": {
+            "cam_i": "images\\filtered\\cam0\\cam0_seq000067_f68.bmp",
+            "cam_j": "images\\filtered\\cam3\\cam3_seq000067_f68.bmp"
+          }
+        }
+      ]
+    }
+  }
+}

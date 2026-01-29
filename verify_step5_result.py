@@ -152,7 +152,6 @@ def _should_headless(args) -> bool:
     - 无 DISPLAY（常见于机器人/SSH/容器）时，OpenCV HighGUI 往往不可用。
     - 参考 OpenCV HighGUI 文档：imshow 需要 GUI 后端并配合 waitKey/pollKey 才会刷新。
     """
-    return True
     if getattr(args, "force_gui", False):
         return False
     if getattr(args, "headless", False):
@@ -184,8 +183,8 @@ def main():
     parser = argparse.ArgumentParser(description="验证 Step5：相机到底盘外参（支持无显示/headless 模式）")
     parser.add_argument(
         "--camera",
-        default="left",
-        help="要验证的相机名（默认 left；需与 Step5 输出 B_T_C 的 key 一致）",
+        default="cam0",
+        help="要验证的相机名（默认 cam0；需与 Step5 输出 B_T_C 的 key 一致）",
     )
     parser.add_argument("--headless", action="store_true", help="禁用窗口显示（无显示设备/SSH 推荐）")
     parser.add_argument("--force_gui", action="store_true", help="强制使用窗口显示（有桌面环境时）")
@@ -228,7 +227,14 @@ def main():
         # 1. 加载配置和标定数据
         config = load_config()
         use_multiscale, opencv_refine = get_detection_settings(config)
-        B_T_Cl, K_l, dist_l = load_calibration_results(camera=str(args.camera))
+        target_camera = str(args.camera)
+        camera_names = (config or {}).get("camera_settings", {}).get("camera_names", ["cam0", "cam1"])
+        if not isinstance(camera_names, (list, tuple)) or len(camera_names) != 2:
+            raise ValueError("config.camera_settings.camera_names 必须是长度为 2 的列表")
+        camera_names = [str(v) for v in camera_names]
+        if target_camera not in camera_names:
+            raise ValueError(f"--camera 必须是 camera_settings.camera_names 之一。可用：{camera_names}")
+        B_T_C, K, dist = load_calibration_results(camera=target_camera)
 
         # 准备 AprilTag 数据
         obj_points_mm, tag_ids = create_apriltag_board(config)
@@ -283,13 +289,23 @@ def main():
                 break
 
             # 读取图像
-            left_frame, right_frame, timestamp = camera.read_stereo()
-            if left_frame is None:
+            frame0, frame1, timestamp = camera.read_stereo()
+            if frame0 is None:
                 print("无法读取图像")
                 break
 
-            # 只需要左图进行验证
-            img = left_frame.copy()
+            # Step5 的验证流程只需要单路图像：选择与 --camera 对应的画面。
+            # read_stereo() 的返回顺序与 camera_settings.camera_names 一致。
+            if target_camera == camera_names[0]:
+                img_src = frame0
+            else:
+                img_src = frame1
+
+            if img_src is None:
+                print(f"无法读取 {target_camera} 图像")
+                break
+
+            img = img_src.copy()
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
             # 检测 AprilTag
@@ -300,22 +316,22 @@ def main():
                 use_multiscale=use_multiscale,
                 opencv_refine=opencv_refine,
                 board=board,
-                camera_matrix=K_l,
-                dist_coeffs=dist_l,
+                camera_matrix=K,
+                dist_coeffs=dist,
             )
 
             # 估计位姿
             success, rvec, tvec = estimate_pose_apriltag(
-                corners, ids, obj_points, tag_ids, K_l, dist_l
+                corners, ids, obj_points, tag_ids, K, dist
             )
 
             if success:
                 assert rvec is not None and tvec is not None
-                # 1. 计算 Cl_T_T (Board to Camera Left)
-                Cl_T_T = _make_transform(rvec, tvec)
+                # 1. 计算 C_T_T (Board -> Camera)
+                C_T_T = _make_transform(rvec, tvec)
 
-                # 2. 计算 B_T_T (Board to Base) = B_T_Cl @ Cl_T_T
-                B_T_T_measured = B_T_Cl @ Cl_T_T
+                # 2. 计算 B_T_T (Board -> Base) = B_T_C @ C_T_T
+                B_T_T_measured = B_T_C @ C_T_T
 
                 # 3. 计算 FPS
                 current_time = time.time()
@@ -349,7 +365,7 @@ def main():
                 if not args.no_draw:
                     if corners is not None and ids is not None:
                         cv2.aruco.drawDetectedMarkers(img, corners, ids)
-                    cv2.drawFrameAxes(img, K_l, dist_l, rvec, tvec, 0.1) # 绘制坐标轴 (0.1m)
+                    cv2.drawFrameAxes(img, K, dist, rvec, tvec, 0.1) # 绘制坐标轴 (0.1m)
                     draw_info(img, B_T_T_measured, fps)
 
                 # 5. 终端打印 (每10帧打印一次，避免刷屏)
@@ -393,7 +409,7 @@ def main():
                 try:
                     s = float(args.scale) if args.scale and args.scale > 0 else 1.0
                     display_img = cv2.resize(img, (0, 0), fx=s, fy=s) if s != 1.0 else img
-                    cv2.imshow("Verify Step 5 (Left Camera)", display_img)
+                    cv2.imshow(f"Verify Step 5 ({target_camera})", display_img)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 except cv2.error:

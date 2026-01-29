@@ -15,6 +15,7 @@ import numpy as np
 import json
 import glob
 import os
+from pathlib import Path
 from utils import (
     load_config,
     get_aruco_dict,
@@ -22,26 +23,34 @@ from utils import (
     create_apriltag_board,
     create_opencv_aruco_board,
     get_detection_settings,
+    get_camera_filtered_images,
+    get_camera_raw_images,
 )
 
 
 def load_calibration():
     """加载标定结果"""
-    # 左相机内参
-    with open("results/left_intrinsics.json", "r") as f:
-        left_data = json.load(f)
-    K_l = np.array(left_data["camera_matrix"])
-    dist_l = np.array(left_data["dist_coeffs"])
-
-    # 右相机内参
-    with open("results/right_intrinsics.json", "r") as f:
-        right_data = json.load(f)
-    K_r = np.array(right_data["camera_matrix"])
-    dist_r = np.array(right_data["dist_coeffs"])
-
-    # 双目外参
     with open("results/stereo_extrinsics.json", "r") as f:
         stereo_data = json.load(f)
+
+    cam_a = stereo_data.get("camera_a")
+    cam_b = stereo_data.get("camera_b")
+    if not cam_a or not cam_b:
+        raise ValueError(
+            "results/stereo_extrinsics.json 缺少 camera_a/camera_b（请使用新版 step4_stereo_extrinsic.py 重新生成）"
+        )
+
+    # 相机内参（与 Step3 输出一致：results/<cam>_intrinsics.json）
+    with open(f"results/{cam_a}_intrinsics.json", "r") as f:
+        data_a = json.load(f)
+    K_a = np.array(data_a["camera_matrix"])
+    dist_a = np.array(data_a["dist_coeffs"])
+
+    with open(f"results/{cam_b}_intrinsics.json", "r") as f:
+        data_b = json.load(f)
+    K_b = np.array(data_b["camera_matrix"])
+    dist_b = np.array(data_b["dist_coeffs"])
+
     R = np.array(stereo_data["R"])
     t = np.array(stereo_data["t"]).reshape(3, 1)
     baseline = stereo_data["baseline"]
@@ -60,10 +69,12 @@ def load_calibration():
     Q = np.array(rect_data["Q"])
 
     return (
-        K_l,
-        dist_l,
-        K_r,
-        dist_r,
+        str(cam_a),
+        str(cam_b),
+        K_a,
+        dist_a,
+        K_b,
+        dist_b,
         R,
         t,
         baseline,
@@ -140,6 +151,10 @@ def collect_stereo_points_for_verification(
         if left_ids is None or right_ids is None:
             continue
 
+        # corners 在某些实现路径下可能返回 None（即使 ids 非空）。这里显式保护，避免后续索引崩溃。
+        if left_corners is None or right_corners is None:
+            continue
+
         if len(left_ids) < 4 or len(right_ids) < 4:
             continue
 
@@ -196,17 +211,19 @@ def collect_stereo_points_for_verification(
 
 
 def verify_reprojection_error(
-    left_images,
-    right_images,
-    K_l,
-    dist_l,
-    K_r,
-    dist_r,
+    cam_a_images,
+    cam_b_images,
+    K_a,
+    dist_a,
+    K_b,
+    dist_b,
     R,
     t,
     reported_mean_error,
     aruco_dict,
     *,
+    cam_a_name: str,
+    cam_b_name: str,
     opencv_ret_rms=None,
     skip_quality_filter: bool = False,
 ):
@@ -221,11 +238,11 @@ def verify_reprojection_error(
     5. 对所有点求 mean（平均欧氏误差）
 
     参数:
-        left_images: 左相机图像路径列表
-        right_images: 右相机图像路径列表
-        K_l, dist_l: 左相机内参
-        K_r, dist_r: 右相机内参
-        R, t: 双目外参（右相机相对左相机的旋转和平移）
+        cam_a_images: CamA 图像路径列表
+        cam_b_images: CamB 图像路径列表
+        K_a, dist_a: CamA 内参
+        K_b, dist_b: CamB 内参
+        R, t: 双目外参（Step4 约定：X_cam_b = R * X_cam_a + t）
         reported_mean_error: Step4 保存到 stereo_extrinsics.json 的 mean reprojection error
         aruco_dict: AprilTag字典
     """
@@ -258,17 +275,17 @@ def verify_reprojection_error(
         detector_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
 
         image_quality = analyze_stereo_image_quality(
-            left_images,
-            right_images,
+            cam_a_images,
+            cam_b_images,
             aruco_dict,
             detector_params,
             use_multiscale=use_multiscale,
             opencv_refine=opencv_refine,
             board=board,
-            left_camera_matrix=K_l,
-            left_dist_coeffs=dist_l,
-            right_camera_matrix=K_r,
-            right_dist_coeffs=dist_r,
+            left_camera_matrix=K_a,
+            left_dist_coeffs=dist_a,
+            right_camera_matrix=K_b,
+            right_dist_coeffs=dist_b,
         )
 
         MIN_COMMON_TAGS = 15
@@ -282,26 +299,28 @@ def verify_reprojection_error(
 
         # Step4 默认最多使用 150 对
         max_pairs = 150
-        left_images = [p[0] for p in keep_pairs][:max_pairs]
-        right_images = [p[1] for p in keep_pairs][:max_pairs]
-        print(f"  ✓ 过滤后用于验证: {len(left_images)} 对（阈值: {MIN_COMMON_TAGS} 共同标签，最多 {max_pairs} 对）")
+        cam_a_images = [p[0] for p in keep_pairs][:max_pairs]
+        cam_b_images = [p[1] for p in keep_pairs][:max_pairs]
+        print(
+            f"  过滤后用于验证: {len(cam_a_images)} 对（阈值: {MIN_COMMON_TAGS} 共同标签，最多 {max_pairs} 对）"
+        )
 
     # 收集对应点（与step4相同的逻辑）
     print("收集双目对应点...")
     all_obj_pts, all_img_pts_l, all_img_pts_r, valid_pairs = (
         collect_stereo_points_for_verification(
-            left_images,
-            right_images,
+            cam_a_images,
+            cam_b_images,
             obj_points,
             tag_ids,
             aruco_dict,
             use_multiscale=use_multiscale,
             opencv_refine=opencv_refine,
             board=board,
-            K_l=K_l,
-            dist_l=dist_l,
-            K_r=K_r,
-            dist_r=dist_r,
+            K_l=K_a,
+            dist_l=dist_a,
+            K_r=K_b,
+            dist_r=dist_b,
             max_valid_images=150,
         )
     )
@@ -334,13 +353,13 @@ def verify_reprojection_error(
     ):
         # ===== 左相机重投影误差 =====
         # 1. 使用PnP求解标定板相对左相机的位姿
-        success_l, R_vec_l, t_vec_l = cv2.solvePnP(obj_pts, img_pts_l, K_l, dist_l)
+        success_l, R_vec_l, t_vec_l = cv2.solvePnP(obj_pts, img_pts_l, K_a, dist_a)
 
         if not success_l:
             continue
 
         # 2. 将3D点投影回左相机图像
-        proj_pts_l, _ = cv2.projectPoints(obj_pts, R_vec_l, t_vec_l, K_l, dist_l)
+        proj_pts_l, _ = cv2.projectPoints(obj_pts, R_vec_l, t_vec_l, K_a, dist_a)
         proj_pts_l = proj_pts_l.reshape(-1, 2)
 
         # 3. 计算每个点的欧氏距离
@@ -363,7 +382,7 @@ def verify_reprojection_error(
         R_vec_r, _ = cv2.Rodrigues(R_mat_r)
 
         # 使用约束后的右相机位姿投影
-        proj_pts_r, _ = cv2.projectPoints(obj_pts, R_vec_r, t_vec_r, K_r, dist_r)
+        proj_pts_r, _ = cv2.projectPoints(obj_pts, R_vec_r, t_vec_r, K_b, dist_b)
         proj_pts_r = proj_pts_r.reshape(-1, 2)
 
         errors_r = np.linalg.norm(img_pts_r - proj_pts_r, axis=1)
@@ -394,8 +413,8 @@ def verify_reprojection_error(
     print()
 
     print(f"分相机统计:")
-    print(f"  左相机平均误差: {np.mean(all_errors_left):.4f} px")
-    print(f"  右相机平均误差: {np.mean(all_errors_right):.4f} px")
+    print(f"  {cam_a_name} 平均误差: {np.mean(all_errors_left):.4f} px")
+    print(f"  {cam_b_name} 平均误差: {np.mean(all_errors_right):.4f} px")
     print()
 
     # 对比 Step4 保存的 mean 结果
@@ -597,6 +616,9 @@ def verify_depth_accuracy(
             opencv_refine=opencv_refine,
             board=opencv_board,
         )
+
+        if left_corners is None or right_corners is None:
+            continue
 
         if left_ids is None or right_ids is None or len(left_ids) < 2:
             continue
@@ -806,6 +828,10 @@ def verify_rectification_quality(
         board=opencv_board,
     )
 
+    if left_corners is None or right_corners is None:
+        print("  未能检测到角点，无法评估立体校正质量")
+        return
+
     if left_ids is not None and right_ids is not None:
         left_ids_flat = np.asarray(left_ids).reshape(-1)
         right_ids_flat = np.asarray(right_ids).reshape(-1)
@@ -848,10 +874,12 @@ def main():
     # 加载标定结果
     try:
         (
-            K_l,
-            dist_l,
-            K_r,
-            dist_r,
+            cam_a,
+            cam_b,
+            K_a,
+            dist_a,
+            K_b,
+            dist_b,
             R,
             t,
             baseline,
@@ -861,15 +889,21 @@ def main():
             image_source_from_step4,
             used_pairs_from_step4,
         ) = load_calibration()
-    except FileNotFoundError as e:
-        print(f"\n错误: 缺少标定文件")
-        print(f"请先运行 python step4_stereo_extrinsic.py")
+    except FileNotFoundError:
+        print("\n错误: 缺少标定文件")
+        print("请先运行 python step4_stereo_extrinsic.py")
+        return
+    except Exception as e:
+        print("\n错误: 标定文件内容不符合预期")
+        print(str(e))
         return
 
     print(f"\n标定参数概览:")
     print(f"  基线距离: {baseline:.2f} mm")
-    print(f"  焦距（左）: {K_l[0, 0]:.2f} px")
-    print(f"  焦距（右）: {K_r[0, 0]:.2f} px")
+    print(f"  相机A: {cam_a}")
+    print(f"  相机B: {cam_b}")
+    print(f"  焦距({cam_a}): {K_a[0, 0]:.2f} px")
+    print(f"  焦距({cam_b}): {K_b[0, 0]:.2f} px")
     print(f"  Step4保存重投影误差(mean): {float(stereo_mean_error):.4f} px")
     if opencv_ret_rms is not None:
         try:
@@ -890,8 +924,8 @@ def main():
         return False
 
     # 优先使用 Step4 记录的 used_pairs（最可靠：保证样本集合一致）
-    left_images = []
-    right_images = []
+    cam_a_images = []
+    cam_b_images = []
     image_source = None
     using_step4_used_pairs = False
 
@@ -901,8 +935,8 @@ def main():
         for pair in used_pairs_from_step4:
             if not isinstance(pair, dict):
                 continue
-            lp = pair.get("left")
-            rp = pair.get("right")
+            lp = pair.get("cam_a")
+            rp = pair.get("cam_b")
             if not lp or not rp:
                 continue
 
@@ -914,30 +948,67 @@ def main():
             if not os.path.exists(rp_try):
                 rp_try = os.path.join(base_dir, rp)
 
-            left_images.append(lp_try)
-            right_images.append(rp_try)
+            cam_a_images.append(lp_try)
+            cam_b_images.append(rp_try)
 
         # 只要能找到可读的一对，就认为可用
-        if len(left_images) > 0 and len(right_images) > 0 and _has_readable_pair(left_images, right_images, max_check=10):
+        if (
+            len(cam_a_images) > 0
+            and len(cam_b_images) > 0
+            and _has_readable_pair(cam_a_images, cam_b_images, max_check=10)
+        ):
             using_step4_used_pairs = True
             image_source = str(image_source_from_step4) if image_source_from_step4 is not None else "(unknown)"
             print(f"\n使用 Step4 记录的 used_pairs 进行验证（image_source={image_source}）")
 
     # 回退：按目录扫描（优先 filtered；若为空或不可读则回退到 raw）
     if not using_step4_used_pairs:
-        left_images = sorted(glob.glob("images/filtered/left/*.png"))
-        right_images = sorted(glob.glob("images/filtered/right/*.png"))
-        image_source = "filtered"
-        if len(left_images) == 0 or len(right_images) == 0 or not _has_readable_pair(left_images, right_images):
-            left_images = sorted(glob.glob("images/raw/left/*.png"))
-            right_images = sorted(glob.glob("images/raw/right/*.png"))
+        # 按 Step4 记录的 image_source 优先；否则默认 filtered。
+        preferred = str(image_source_from_step4 or "filtered").strip().lower()
+        if preferred not in {"filtered", "raw"}:
+            preferred = "filtered"
+
+        config = load_config()
+
+        def _pair_by_stem(a_paths, b_paths):
+            a_map = {Path(p).stem: str(p) for p in a_paths}
+            b_map = {Path(p).stem: str(p) for p in b_paths}
+            keys = sorted(set(a_map.keys()) & set(b_map.keys()))
+            return [a_map[k] for k in keys], [b_map[k] for k in keys]
+
+        if preferred == "filtered":
+            a_list = [str(p) for p in get_camera_filtered_images(config, cam_a)]
+            b_list = [str(p) for p in get_camera_filtered_images(config, cam_b)]
+            cam_a_images, cam_b_images = _pair_by_stem(a_list, b_list)
+            image_source = "filtered"
+        else:
+            a_list = [str(p) for p in get_camera_raw_images(config, cam_a)]
+            b_list = [str(p) for p in get_camera_raw_images(config, cam_b)]
+            cam_a_images, cam_b_images = _pair_by_stem(a_list, b_list)
             image_source = "raw"
 
-        if len(left_images) == 0 or len(right_images) == 0:
-            print("\n错误: 未找到图像（images/filtered 与 images/raw 均为空）")
+        if (
+            len(cam_a_images) == 0
+            or len(cam_b_images) == 0
+            or not _has_readable_pair(cam_a_images, cam_b_images)
+        ):
+            # 自动回退到另一种来源，便于直接跑验证。
+            if image_source == "filtered":
+                a_list = [str(p) for p in get_camera_raw_images(config, cam_a)]
+                b_list = [str(p) for p in get_camera_raw_images(config, cam_b)]
+                cam_a_images, cam_b_images = _pair_by_stem(a_list, b_list)
+                image_source = "raw"
+            else:
+                a_list = [str(p) for p in get_camera_filtered_images(config, cam_a)]
+                b_list = [str(p) for p in get_camera_filtered_images(config, cam_b)]
+                cam_a_images, cam_b_images = _pair_by_stem(a_list, b_list)
+                image_source = "filtered"
+
+        if len(cam_a_images) == 0 or len(cam_b_images) == 0:
+            print("\n错误: 未找到可用图像（请检查 images/filtered 或 images/raw 下的相机目录）")
             return
 
-        print(f"\n使用图像来源: images/{image_source}/")
+        print(f"\n使用图像来源: images/{image_source}/（按文件名 stem 同步配对）")
 
     # 加载配置
     config = load_config()
@@ -945,28 +1016,38 @@ def main():
 
     # 【新增】重投影误差手动验证（直接验证标定质量）
     verify_reprojection_error(
-        left_images,
-        right_images,
-        K_l,
-        dist_l,
-        K_r,
-        dist_r,
+        cam_a_images,
+        cam_b_images,
+        K_a,
+        dist_a,
+        K_b,
+        dist_b,
         R,
         t,
         float(stereo_mean_error),
         aruco_dict,
+        cam_a_name=str(cam_a),
+        cam_b_name=str(cam_b),
         opencv_ret_rms=opencv_ret_rms,
         skip_quality_filter=using_step4_used_pairs,
     )
 
     # 深度精度验证（间接验证 R 和 t）
     verify_depth_accuracy(
-        left_images, right_images, K_l, dist_l, K_r, dist_r, Q, baseline, aruco_dict
+        cam_a_images,
+        cam_b_images,
+        K_a,
+        dist_a,
+        K_b,
+        dist_b,
+        Q,
+        baseline,
+        aruco_dict,
     )
 
     # 立体校正质量（间接验证 R 和 t）
     verify_rectification_quality(
-        left_images, right_images, K_l, dist_l, K_r, dist_r, R, t
+        cam_a_images, cam_b_images, K_a, dist_a, K_b, dist_b, R, t
     )
 
     print("\n" + "=" * 60)

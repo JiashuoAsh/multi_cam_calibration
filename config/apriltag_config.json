@@ -3,22 +3,30 @@
   "camera_settings": {
     "camera_type": "video_stereo",
 
+    "camera_names": ["cam0", "cam1"],
+
     "video_mode": "two_files",
     "_comment_video_mode": "two_files=左右各一段视频；single_sbs=单视频左右拼接",
 
-    "video_left_path": "videos/202.mp4",
-    "video_right_path": "videos/203.mp4",
+    "video_paths": {
+      "cam0": "videos/202.mp4",
+      "cam1": "videos/203.mp4"
+    },
 
     "video_path": "videos/stereo_sbs.mp4",
-    "sbs_layout": "rl",
 
-    "rotate_left": "none",
-    "rotate_right": "none",
+    "sbs_order": ["cam0", "cam1"],
+    "_comment_sbs_order": "single_sbs 模式下生效：左半区对应 cam0，右半区对应 cam1（顺序与 camera_names 的集合一致即可）",
+
+    "rotate": {
+      "cam0": "none",
+      "cam1": "none"
+    },
 
     "force_resize_width": null,
     "force_resize_height": null,
 
-    "note": "two_files 模式使用 video_left_path/video_right_path；single_sbs 模式使用 video_path + sbs_layout。force_resize_* 仅在左右分辨率不一致或需要统一尺寸时使用。Windows 路径建议用 C:/xxx/yyy.mp4 或相对路径。"
+    "note": "two_files 模式使用 video_paths（键名与 camera_names 一致）；single_sbs 模式使用 video_path + sbs_order。rotate 也按 camera_names 指定。force_resize_* 仅在两路分辨率不一致或需要统一尺寸时使用。Windows 路径建议用 C:/xxx/yyy.mp4 或相对路径。"
   },
 
   "video_extract": {
@@ -37,19 +45,19 @@
     "_comment_start_sec": "从第几秒开始（默认 0；优先级高于 start_frame）",
 
     "out_dir": "images/raw",
-    "_comment_out_dir": "输出目录（会生成 out_dir/left 与 out_dir/right）",
+    "_comment_out_dir": "输出目录（会生成 out_dir/<cam0> 与 out_dir/<cam1>，名称来自 camera_settings.camera_names）",
 
     "prefix": "frame_",
     "_comment_prefix": "输出文件名前缀（会拼接 6 位 frame index，例如 frame_000120.png）",
 
     "overwrite": false,
-    "_comment_overwrite": "是否清空 out_dir/left 与 out_dir/right 后再写入（谨慎使用）"
+    "_comment_overwrite": "是否清空 out_dir/<cam0> 与 out_dir/<cam1> 后再写入（谨慎使用）"
   },
 
   "image_dataset": {
     "_comment": "（可选）多相机图片数据集输入：启用后 Step2/Step3/Step4 将按此配置自动处理多相机。",
-    "_comment_enabled": "false=保持旧默认（双目 left/right 且固定 images/raw 与 images/filtered）；true=按 cameras 指定的路径处理。",
-    "enabled": false,
+    "_comment_enabled": "false=不启用 image_dataset（此时上层脚本会根据 images/raw 下的 cam* 目录或 cameras 配置自行决定）；true=按 cameras 指定的路径处理。",
+    "enabled": true,
 
     "raw_root": "images/raw",
     "filtered_root": "images/filtered",
@@ -62,8 +70,10 @@
 
     "cameras": {
       "_comment": "每个相机可用 raw_dir 或 raw_glob 指定原始图片来源。raw_dir 会自动扫描 png/jpg/jpeg/bmp。",
-      "left": {"raw_dir": "images/raw/left"},
-      "right": {"raw_dir": "images/raw/right"}
+      "cam0": {"raw_glob": "images/raw/cam0_DA8199303/*.bmp"},
+      "cam1": {"raw_glob": "images/raw/cam1_DA8199402/*.bmp"},
+      "_cam2": {"raw_glob": "images/raw/cam2_DA8199243/*.bmp"},
+      "_cam3": {"raw_glob": "images/raw/cam3_DA8199285/*.bmp"}
     }
   },
 
@@ -76,8 +86,8 @@
 
     "cameras": {
       "_comment": "每个相机可用 raw_dir 或 raw_glob 指定 Step5 图片来源；若留空则默认使用 image_root/<cam>。",
-      "left": {"raw_dir": "images/step5/left"},
-      "right": {"raw_dir": "images/step5/right"}
+      "cam0": {"raw_dir": "images/step5/cam0"},
+      "cam1": {"raw_dir": "images/step5/cam1"}
     }
   },
 
@@ -87,7 +97,7 @@
 
     "world_anchor": {
       "_comment": "当 mode=world_anchor 时生效。你需要提供底盘在世界系的位姿 W_T_B，以及某个参考相机在世界系的位姿 W_T_Cref（单位：米/度；欧拉角默认 XYZ 内旋，与 Step5b 一致）。",
-      "reference_camera": "left",
+      "reference_camera": "cam0",
       "world_T_base": {
         "translation": [0.0, 0.0, 0.0],
         "rotation_euler_deg": [0.0, 0.0, 0.0],
@@ -100,6 +110,7 @@
       }
     }
   },
+
   "apriltag_board": {
     "_comment": "AprilTag标定板配置 - 必须精确测量！",
 
@@ -128,10 +139,10 @@
   "calibration_settings": {
     "_comment": "标定参数设置",
 
-    "min_tags_for_pose": 4,
+    "min_tags_for_pose": 2,
     "_comment_min_tags_for_pose": "位姿估计最少需要的标签数，建议: 4-10，值越大要求越严格",
 
-    "max_images": 500,
+    "max_images": 100,
     "_comment_max_images": "目标采集的图像组数，建议: 20-50",
 
     "corner_refinement": "CORNER_REFINE_SUBPIX",
@@ -148,7 +159,7 @@
       "_comment_profile": "检测参数预设：balanced=默认；small_tags=针对远距离/小Tag提高召回（更慢，可能略增误检）",
 
       "roi": null,
-      "_comment_roi": "可选ROI加速/提升小Tag召回：统一ROI用 [x,y,w,h]；或按相机 {left:[...], right:[...]}。建议先用结果可视化看板子大概位置再填。",
+      "_comment_roi": "可选ROI加速/提升小Tag召回：统一ROI用 [x,y,w,h]；或按相机 {cam0:[...], cam1:[...], ...}。建议先用结果可视化看板子大概位置再填。",
 
       "auto_roi": {"enabled": true, "pre_scale": 0.5, "min_tags": 1, "margin": 0.25},
       "_comment_auto_roi": "板子位置不固定/一直晃动时可启用：先在缩小图上粗检定位板子区域，再对该ROI做多尺度/上采样精检。也支持对象形式：{\"enabled\":true,\"pre_scale\":0.5,\"min_tags\":1,\"margin\":0.25}。注意：若你同时设置了 roi，则 auto_roi 只会在 roi=null 时生效。",

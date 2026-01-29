@@ -5,7 +5,10 @@
 
 如果你需要恢复旧的硬件采集（USB/MIPI/Acemate_A2 hit 驱动）代码，请从历史版本或 archive 目录中找回。
 
-统一接口：read_stereo() -> (left_frame, right_frame, timestamp_sec)
+统一接口：read_stereo() -> (frame0, frame1, timestamp_sec)
+
+说明：
+    - frame0/frame1 的顺序由配置中的 camera_names 决定（默认 ["cam0", "cam1"]）。
 """
 
 import cv2
@@ -54,8 +57,8 @@ class BaseCameraWrapper:
 
         Returns:
             tuple: (left_frame, right_frame, timestamp)
-                - left_frame (np.ndarray): 左相机图像，BGR格式
-                - right_frame (np.ndarray): 右相机图像，BGR格式
+                - left_frame (np.ndarray): 第 0 路图像（camera_names[0]），BGR 格式
+                - right_frame (np.ndarray): 第 1 路图像（camera_names[1]），BGR 格式
                 - timestamp (float): 时间戳（秒），用于同步验证
             或 (None, None, None): 读取失败时
         """
@@ -83,29 +86,28 @@ class VideoStereoCamera(BaseCameraWrapper):
     """基于视频文件的双目输入封装。
 
     适用场景：
-    - 两路 RGB 相机各自录制为独立视频文件（left/right 两个 mp4）
+    - 两路 RGB 相机各自录制为独立视频文件（两路 mp4）
     - 单个视频文件为左右拼接（side-by-side），需要按中线切割
 
     说明：
     - read_stereo() 的语义保持与硬件相机一致：返回 (left_frame, right_frame, timestamp_sec)
     - timestamp_sec 优先使用 CAP_PROP_POS_MSEC（若后端支持），否则用帧序号 / fps 估计
 
-    配置字段（camera_settings）：
-      - camera_type: 固定为 "video_stereo"
-      - video_mode: "two_files" | "single_sbs"（默认 two_files）
+        配置字段（camera_settings）：
+            - camera_type: 固定为 "video_stereo"
+            - camera_names: 两路相机名，长度必须为 2（默认 ["cam0", "cam1"]）
+            - video_mode: "two_files" | "single_sbs"（默认 two_files）
 
-      two_files 模式：
-        - video_left_path: 左视频路径
-        - video_right_path: 右视频路径
+            two_files 模式：
+                - video_paths: {"cam0": "a.mp4", "cam1": "b.mp4"}
 
             single_sbs 模式：
-        - video_path: 拼接视频路径
-                - sbs_layout: "lr" | "rl" （默认 "rl"；rl 表示：右半->left，左半->right）
+                - video_path: 拼接视频路径
+                - sbs_order: ["cam0", "cam1"]  # 表示：左半为 cam0，右半为 cam1
 
-      可选：
-        - rotate_left: "none"|"cw90"|"ccw90"|"180"（默认 none）
-        - rotate_right: 同上（默认 none）
-        - force_resize_width/force_resize_height: 强制 resize 到统一尺寸（谨慎使用，默认不启用）
+            可选：
+                - rotate: {"cam0": "none", "cam1": "cw90"}  # 未提供则默认为 none
+                - force_resize_width/force_resize_height: 强制 resize 到统一尺寸（谨慎使用，默认不启用）
     """
 
     def __init__(self, config):
@@ -115,10 +117,31 @@ class VideoStereoCamera(BaseCameraWrapper):
         self.cap = None
 
         self.video_mode = str(config.get("video_mode", "two_files"))
-        self.sbs_layout = str(config.get("sbs_layout", "rl"))
 
-        self.rotate_left = str(config.get("rotate_left", "none"))
-        self.rotate_right = str(config.get("rotate_right", "none"))
+        camera_names = config.get("camera_names", ["cam0", "cam1"])
+        if not isinstance(camera_names, (list, tuple)) or len(camera_names) != 2:
+            raise ValueError("camera_settings.camera_names 必须是长度为 2 的列表，例如 ['cam0','cam1']")
+        camera_names = [str(v) for v in camera_names]
+        if camera_names[0] == camera_names[1] or (not camera_names[0]) or (not camera_names[1]):
+            raise ValueError("camera_settings.camera_names 需要是两个不同且非空的相机名")
+        self.camera_names = camera_names
+
+        rotate_cfg = config.get("rotate", {})
+        if rotate_cfg is None:
+            rotate_cfg = {}
+        if not isinstance(rotate_cfg, dict):
+            raise ValueError("camera_settings.rotate 必须是 dict，例如 {'cam0':'none','cam1':'cw90'}")
+        self.rotate = {
+            self.camera_names[0]: str(rotate_cfg.get(self.camera_names[0], "none")),
+            self.camera_names[1]: str(rotate_cfg.get(self.camera_names[1], "none")),
+        }
+
+        self.sbs_order = config.get("sbs_order", [self.camera_names[0], self.camera_names[1]])
+        if not isinstance(self.sbs_order, (list, tuple)) or len(self.sbs_order) != 2:
+            raise ValueError("camera_settings.sbs_order 必须是长度为 2 的列表，例如 ['cam0','cam1']")
+        self.sbs_order = [str(v) for v in self.sbs_order]
+        if set(self.sbs_order) != set(self.camera_names):
+            raise ValueError("camera_settings.sbs_order 必须由 camera_names 的两个名字组成（顺序表示左右半区）")
 
         self.force_resize_width = config.get("force_resize_width", None)
         self.force_resize_height = config.get("force_resize_height", None)
@@ -131,51 +154,65 @@ class VideoStereoCamera(BaseCameraWrapper):
     def open(self):
         try:
             if self.video_mode == "two_files":
-                left_path = self.config.get("video_left_path")
-                right_path = self.config.get("video_right_path")
-                if not left_path or not right_path:
-                    print("❌ Error: video_left_path / video_right_path is required for video_mode=two_files")
+                video_paths = self.config.get("video_paths", None)
+                if not isinstance(video_paths, dict):
+                    print("Error: camera_settings.video_paths is required for video_mode=two_files")
                     return False
 
-                self.cap_left = cv2.VideoCapture(str(left_path))
-                self.cap_right = cv2.VideoCapture(str(right_path))
+                path0 = video_paths.get(self.camera_names[0], None)
+                path1 = video_paths.get(self.camera_names[1], None)
+                if not path0 or not path1:
+                    print(
+                        "Error: camera_settings.video_paths 必须包含两路视频路径，键名与 camera_names 一致"
+                    )
+                    return False
+
+                self.cap_left = cv2.VideoCapture(str(path0))
+                self.cap_right = cv2.VideoCapture(str(path1))
 
                 if not self.cap_left.isOpened():
-                    print(f"❌ Error: Failed to open left video: {left_path}")
+                    print(f"Error: Failed to open video for {self.camera_names[0]}: {path0}")
                     return False
                 if not self.cap_right.isOpened():
-                    print(f"❌ Error: Failed to open right video: {right_path}")
+                    print(f"Error: Failed to open video for {self.camera_names[1]}: {path1}")
                     return False
 
                 self._fps_left = float(self.cap_left.get(cv2.CAP_PROP_FPS) or 0.0)
                 self._fps_right = float(self.cap_right.get(cv2.CAP_PROP_FPS) or 0.0)
 
                 self.is_open = True
-                print(f"✓ Opened stereo videos (two_files):\n  left={left_path}\n  right={right_path}")
+                print(
+                    "Opened stereo videos (two_files):\n"
+                    f"  {self.camera_names[0]}={path0}\n"
+                    f"  {self.camera_names[1]}={path1}"
+                )
                 return True
 
             if self.video_mode == "single_sbs":
                 path = self.config.get("video_path")
                 if not path:
-                    print("❌ Error: video_path is required for video_mode=single_sbs")
+                    print("Error: camera_settings.video_path is required for video_mode=single_sbs")
                     return False
 
                 self.cap = cv2.VideoCapture(str(path))
                 if not self.cap.isOpened():
-                    print(f"❌ Error: Failed to open video: {path}")
+                    print(f"Error: Failed to open video: {path}")
                     return False
 
                 self._fps_single = float(self.cap.get(cv2.CAP_PROP_FPS) or 0.0)
 
                 self.is_open = True
-                print(f"✓ Opened stereo video (single_sbs): {path} (layout={self.sbs_layout})")
+                print(
+                    "Opened stereo video (single_sbs): "
+                    f"{path} (sbs_order={self.sbs_order}, camera_names={self.camera_names})"
+                )
                 return True
 
-            print(f"❌ Error: Unknown video_mode: {self.video_mode}. Supported: two_files, single_sbs")
+            print(f"Error: Unknown video_mode: {self.video_mode}. Supported: two_files, single_sbs")
             return False
 
         except Exception as e:
-            print(f"❌ Error opening video stereo source: {e}")
+            print(f"Error opening video stereo source: {e}")
             return False
 
     def _apply_rotate(self, img, rotate_mode: str):
@@ -241,8 +278,12 @@ class VideoStereoCamera(BaseCameraWrapper):
                     return None, None, None
 
                 # 处理旋转/resize
-                frame_l = self._maybe_resize(self._apply_rotate(frame_l, self.rotate_left))
-                frame_r = self._maybe_resize(self._apply_rotate(frame_r, self.rotate_right))
+                frame_l = self._maybe_resize(
+                    self._apply_rotate(frame_l, self.rotate.get(self.camera_names[0], "none"))
+                )
+                frame_r = self._maybe_resize(
+                    self._apply_rotate(frame_r, self.rotate.get(self.camera_names[1], "none"))
+                )
 
                 # 时间戳（两路取平均；若一侧不可用则取另一侧）
                 ts_l = self._timestamp_from_cap(self.cap_left, self._fps_left or 0.0, self._frame_index)
@@ -265,28 +306,33 @@ class VideoStereoCamera(BaseCameraWrapper):
                 if mid <= 0:
                     return None, None, None
 
-                layout = (self.sbs_layout or "rl").lower()
-                if layout == "rl":
-                    # 与 USBStereoCamera / step1 逻辑一致：右半->left，左半->right
-                    left_part = frame[:, mid:]
-                    right_part = frame[:, :mid]
-                elif layout == "lr":
-                    left_part = frame[:, :mid]
-                    right_part = frame[:, mid:]
-                else:
-                    raise ValueError(f"Unknown sbs_layout: {self.sbs_layout}. Use lr or rl")
+                left_half = frame[:, :mid]
+                right_half = frame[:, mid:]
 
-                left_part = self._maybe_resize(self._apply_rotate(left_part, self.rotate_left))
-                right_part = self._maybe_resize(self._apply_rotate(right_part, self.rotate_right))
+                # 按 sbs_order 解释左右半区对应哪路相机
+                by_name = {
+                    self.sbs_order[0]: left_half,
+                    self.sbs_order[1]: right_half,
+                }
+
+                frame0 = by_name[self.camera_names[0]]
+                frame1 = by_name[self.camera_names[1]]
+
+                frame0 = self._maybe_resize(
+                    self._apply_rotate(frame0, self.rotate.get(self.camera_names[0], "none"))
+                )
+                frame1 = self._maybe_resize(
+                    self._apply_rotate(frame1, self.rotate.get(self.camera_names[1], "none"))
+                )
 
                 timestamp_sec = self._timestamp_from_cap(self.cap, self._fps_single or 0.0, self._frame_index)
                 self._frame_index += 1
-                return left_part, right_part, timestamp_sec
+                return frame0, frame1, timestamp_sec
 
             return None, None, None
 
         except Exception as e:
-            print(f"❌ Error reading from video stereo source: {e}")
+            print(f"Error reading from video stereo source: {e}")
             return None, None, None
 
     def release(self):
@@ -324,10 +370,10 @@ def create_camera(config):
         ValueError: 如果camera_type不支持
 
     Example:
-        >>> config = {'camera_type': 'video_stereo', 'video_mode': 'two_files', 'video_left_path': 'left.mp4', 'video_right_path': 'right.mp4'}
+        >>> config = {'camera_type': 'video_stereo', 'camera_names': ['cam0','cam1'], 'video_mode': 'two_files', 'video_paths': {'cam0': 'a.mp4', 'cam1': 'b.mp4'}}
         >>> camera = create_camera(config)
         >>> camera.open()
-        >>> left, right, ts = camera.read_stereo()
+        >>> cam0, cam1, ts = camera.read_stereo()
     """
     camera_type = config.get("camera_type", "video_stereo")
 

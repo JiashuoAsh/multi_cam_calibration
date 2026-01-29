@@ -1,74 +1,62 @@
+
+$ python step4_multi_extrinsic_pose_graph.py --no_stop_when_connected
 ============================================================
-Step 4: AprilTag 双目外参标定
+Step 4 (Multi-Cam): 多相机外参标定（位姿图优化）
 ============================================================
+图像根目录: images\filtered
+相机列表: ['cam0', 'cam1', 'cam2', 'cam3']
+参考相机: cam0
+min_tags: 2
+每相机可用图片数量(frame_key 去重后): {'cam0': 100, 'cam1': 100, 'cam2': 100, 'cam3': 100}
+PnP 有效帧数: 70
+位姿图边数量: 120
+图连通分量数量: 1
+  component#1: ['cam0', 'cam1', 'cam2', 'cam3']
 
-加载内参...
-  ✓ 左右相机内参已加载
+PnP 自身重投影误差统计（像素，越小越好；仅统计参与建图的观测）
+  - cam0: n=39 mean=0.2035 median=0.1172 p95=0.7335 max=1.2559
+  - cam1: n=58 mean=0.1275 median=0.0671 p95=0.3709 max=0.7932
+  - cam2: n=6 mean=0.8003 median=0.7605 p95=1.1674 max=1.1835
+  - cam3: n=62 mean=0.0791 median=0.0646 p95=0.1796 max=0.2474
 
-找到 447 对图像 (来源: images/filtered/)
+边的平均重投影误差（像素，edge_mean_px=0.5*(cam_i+cam_j)；与边权重一致）
+  - n=120 mean=0.1506 median=0.0889 p95=0.4788 max=0.6761
 
-分析图像对质量...
+诊断：edge_mean_px 最大的若干条边（更像‘检测/同步’问题的信号）
+  #1 pair=cam0__cam1 frame=seq000060_f61 edge_mean_px=0.6761 paths=(filtered\cam0\cam0_seq000060_f61.bmp) | (filtered\cam1\cam1_seq000060_f61.bmp)
+  #2 pair=cam0__cam3 frame=seq000060_f61 edge_mean_px=0.6684 paths=(filtered\cam0\cam0_seq000060_f61.bmp) | (filtered\cam3\cam3_seq000060_f61.bmp)
+  #3 pair=cam2__cam3 frame=seq000003_f4 edge_mean_px=0.6340 paths=(filtered\cam2\cam2_seq000003_f4.bmp) | (filtered\cam3\cam3_seq000003_f4.bmp)
+  #4 pair=cam2__cam3 frame=seq000002_f3 edge_mean_px=0.5970 paths=(filtered\cam2\cam2_seq000002_f3.bmp) | (filtered\cam3\cam3_seq000002_f3.bmp)
+  #5 pair=cam0__cam3 frame=seq000071_f72 edge_mean_px=0.5606 paths=(filtered\cam0\cam0_seq000071_f72.bmp) | (filtered\cam3\cam3_seq000071_f72.bmp)
 
-质量过滤结果:
-  保留: 301 对
-  移除: 146 对（<10 共同标签）
+开始位姿图优化...
+初始残差维度: 720
+初始 RMS(6D): 54.627792
+优化完成: success=False, nfev=200
+最终 RMS(6D): 52.243226
 
-保留图像对的质量:
-  平均共同标签: 19.6 个
-  范围: 10 - 36 个
-  标准差: 7.4 个
+外参优化完成后的多相机一致性重投影误差（像素，越小越好）
+  - overall: n=165 mean=2687.0172 median=566.0844 p95=19999.8027 max=29182.0248
+  - cam0: n=39 mean=9489.3747 median=7409.0644 p95=26141.5773 max=29182.0248
+  - cam1: n=58 mean=650.0110 median=957.0905 p95=1386.9697 max=1493.4208
+  - cam2: n=6 mean=2895.5803 median=2813.5286 p95=3115.7834 max=3125.9885
+  - cam3: n=62 mean=293.5179 median=0.0688 p95=1164.6001 max=1271.8568
 
-使用 301 对高质量图像进行标定
+诊断：外参后重投影误差最大的若干条观测（用于定位坏帧/不同步）
+  #1 cam=cam0 frame=seq000103_f104 mean_px=29182.0248 n_points=88 path=(filtered\cam0\cam0_seq000103_f104.bmp)
+  #2 cam=cam0 frame=seq000087_f88 mean_px=27099.5192 n_points=8 path=(filtered\cam0\cam0_seq000087_f88.bmp)
+  #3 cam=cam0 frame=seq000102_f103 mean_px=26035.1393 n_points=88 path=(filtered\cam0\cam0_seq000102_f103.bmp)
+  #4 cam=cam0 frame=seq000094_f95 mean_px=25762.6805 n_points=32 path=(filtered\cam0\cam0_seq000094_f95.bmp)
+  #5 cam=cam0 frame=seq000086_f87 mean_px=23918.9004 n_points=8 path=(filtered\cam0\cam0_seq000086_f87.bmp)
 
-收集双目对应点...
-  - 最大有效图像对: 1500
-  - 有效双目图像对: 301/301
+边误差统计（更直观）：
+  #2 pair=cam0__cam3 frame=seq000060_f61 rot_deg=31.928 trans_mm=102.480 paths=(filtered\cam0\cam0_seq000060_f61.bmp) | (filtered\cam3\cam3_seq000060_f61.bmp)
+  #3 pair=cam0__cam3 frame=seq000102_f103 rot_deg=31.885 trans_mm=44.353 paths=(filtered\cam0\cam0_seq000102_f103.bmp) | (filtered\cam3\cam3_seq000102_f103.bmp)
+  #4 pair=cam0__cam3 frame=seq000101_f102 rot_deg=31.641 trans_mm=33.141 paths=(filtered\cam0\cam0_seq000101_f102.bmp) | (filtered\cam3\cam3_seq000101_f102.bmp)
+  #5 pair=cam0__cam3 frame=seq000100_f101 rot_deg=31.607 trans_mm=27.208 paths=(filtered\cam0\cam0_seq000100_f101.bmp) | (filtered\cam3\cam3_seq000100_f101.bmp)
+已保存边级诊断: results/step4_multi_edge_diagnostics.json
 
-执行双目标定...
-  - 重投影误差(mean, stereo 约束, 左右合计): 0.1668 像素
-    - 左目 mean: 0.0946 像素
-    - 右目 mean: 0.2390 像素
-    - used pairs: 301/301
-  - OpenCV ret (RMS, stereoCalibrate 返回): 0.2555 像素
-  - 基线距离: 330.13 mm (33.01 cm)
-  - 右目 mean_error(PnP, per-view mean): 0.1011 px (used 301/301)
-  - 右目 mean_error(LeftPnP+R,t 预测): 0.2510 px (used 301/301)
-  标定质量: 优秀（mean < 1.5 px）
-  ✓ 已保存: results/stereo_extrinsics.json
-
-执行立体校正...
-  ✓ 已保存: results/stereo_rectification.json
-
-生成立体校正效果图...
-  ✓ 已保存: results/stereo_rectification_demo.jpg
-  提示: 检查绿色水平线是否对齐，验证校正效果
-
-============================================================
-双目外参标定完成！
-============================================================
-
-双目参数:
-  - 基线距离: 330.13 mm (33.01 cm)
-  - 重投影误差(mean): 0.1668 像素
-  - OpenCV ret (RMS): 0.2555 像素
-  - 使用图像对: 301
-
-旋转矩阵 R (左->右, cam1=Left, cam2=Right; X_right = R * X_left + t):
-[[ 0.9721012   0.05314302  0.22846241]
- [-0.04886325  0.99850855 -0.02435298]
- [-0.22941586  0.01251014  0.9732481 ]]
-
-平移向量 t (左->右, 单位:mm):
-[-328.75438682   15.21992344   25.97819308]
-
-会聚式双目几何:
-  - 会聚角: 13.26°
-  - 垂直偏移: 15.22 mm
-  - 前后偏移: 25.98 mm
-
-质量检查:
-  - 打开 results/stereo_rectification_demo.jpg
-  - 确认左右图像的水平线对齐
-  - 如果对齐良好，说明标定成功
-
-下一步: (可选) 运行 python step5_camera_to_base.py
+已保存:
+  - results/multi_camera_extrinsics.json
+  - results/multi_camera_pose_graph_report.json
+  - results/step4_multi_scan_report.json

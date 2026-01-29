@@ -123,6 +123,10 @@ def get_image_dataset(config: dict) -> Dict[str, Any]:
             if not isinstance(cam, str) or not cam.strip():
                 continue
             cam_name = cam.strip()
+            # 约定：JSON 里常用 "_comment" / "_xxx" 放注释或暂时禁用的条目。
+            # 这些不应被当作真实相机名，否则 Step2-5 会去 images/.../_comment 下找图片并报错。
+            if cam_name.startswith("_") or cam_name.startswith(".") or cam_name.startswith("__"):
+                continue
             cam_cfgs[cam_name] = cfg if isinstance(cfg, dict) else {}
             cameras.append(cam_name)
 
@@ -133,6 +137,8 @@ def get_image_dataset(config: dict) -> Dict[str, Any]:
         for cam in cams_cfg_any:
             if isinstance(cam, str) and cam.strip():
                 cam_name = cam.strip()
+                if cam_name.startswith("_") or cam_name.startswith(".") or cam_name.startswith("__"):
+                    continue
                 cameras.append(cam_name)
                 cam_cfgs[cam_name] = {}
 
@@ -151,18 +157,16 @@ def get_dataset_cameras(
     config: dict,
     *,
     allow_scan: bool = True,
-    fallback_stereo: bool = True,
 ) -> List[str]:
     """获取“需要处理的相机列表”。
 
     优先级：
       1) image_dataset.cameras（dict keys 或 list）
       2) 若 allow_scan：扫描 image_dataset.raw_root 下的子目录（包含图片）
-      3) 若 fallback_stereo：返回 ["left", "right"]
 
     说明：
-      - 该函数不强依赖 image_dataset.enabled；因为用户可能希望“写了 cameras 就生效”。
-      - Step2/3/4 会根据 enabled 决定是否走新逻辑或旧逻辑。
+            - 该函数不强依赖 image_dataset.enabled；只要配置了 cameras（或目录可扫描到），就会返回。
+            - 本仓库已统一使用 cam0/cam1/cam2... 命名，不再提供 left/right 的隐式回退。
     """
     ds = get_image_dataset(config)
     cams = ds.get("cameras", [])
@@ -185,9 +189,6 @@ def get_dataset_cameras(
             found = []
         if len(found) > 0:
             return found
-
-    if fallback_stereo:
-        return ["left", "right"]
     return []
 
 
@@ -276,6 +277,9 @@ def get_step5_dataset(config: dict) -> Dict[str, Any]:
             if not isinstance(cam, str) or not cam.strip():
                 continue
             cam_name = cam.strip()
+            # 同 image_dataset：过滤 "_comment" 等非相机条目。
+            if cam_name.startswith("_") or cam_name.startswith(".") or cam_name.startswith("__"):
+                continue
             cam_cfgs[cam_name] = cfg if isinstance(cfg, dict) else {}
             cameras.append(cam_name)
 
@@ -285,6 +289,8 @@ def get_step5_dataset(config: dict) -> Dict[str, Any]:
         for cam in cams_cfg_any:
             if isinstance(cam, str) and cam.strip():
                 cam_name = cam.strip()
+                if cam_name.startswith("_") or cam_name.startswith(".") or cam_name.startswith("__"):
+                    continue
                 cameras.append(cam_name)
                 cam_cfgs[cam_name] = {}
 
@@ -414,7 +420,7 @@ def get_detection_roi(
 
     支持形式：
         1) 统一 ROI："roi": [x, y, w, h]
-        2) 按相机区分："roi": {"left": [x,y,w,h], "right": [x,y,w,h]}
+        2) 按相机区分："roi": {"cam0": [x,y,w,h], "cam1": [x,y,w,h], ...}
         3) 也支持 dict: {"x":...,"y":...,"w":...,"h":...}
 
     返回： (x, y, w, h) 或 None
@@ -1358,7 +1364,7 @@ def init_camera(config: dict):
     Example:
         >>> config = load_config()
         >>> camera = init_camera(config)
-        >>> left, right, ts = camera.read_stereo()
+        >>> cam0, cam1, ts = camera.read_stereo()
         >>> camera.release()
     """
     # 使用规范的包导入方式
@@ -1412,7 +1418,7 @@ def analyze_stereo_image_quality(
         >>> aruco_dict = get_aruco_dict('tag36h11')
         >>> params = cv2.aruco.DetectorParameters()
         >>> quality = analyze_stereo_image_quality(left_imgs, right_imgs, aruco_dict, params)
-        >>> for left, right, common in quality:
+        >>> for cam0_path, cam1_path, common in quality:
         ...     print(f"{common} common tags")
     """
     results = []

@@ -1,12 +1,12 @@
 """Step4 外参图加载与相机外参传播。
 
 该模块的目标是把“相机间外参（Step4 产物）”统一成一套可复用接口，
-供 Step5（相机->底盘）在不同求解方式下复用。
+供 Step5（相机->底盘）复用。
 
 约定（与仓库 README 一致）：
 - 齐次变换 `A_T_B` 表示 **B -> A**。
 - Step4 pose graph 输出 `T_cam_from_ref[cam]` 表示：Cam_i <- Cam_ref，即 `C_cam_T_Cref`。
-- Step4 stereo 输出 `R,t` 满足：X_right = R * X_left + t（左->右），即 `Cr_T_Cl`。
+注：本仓库已统一使用 Step4 位姿图（multi_camera_extrinsics.json），不再维护 stereo 专用外参输出。
 
 本模块只负责：
 1) 从 results 目录加载 Step4 外参（multi 或 stereo）。
@@ -72,7 +72,7 @@ def invert_transform(T: np.ndarray, name: str = "inv") -> np.ndarray:
 
 
 def load_extrinsics_graph(*, results_dir: Path = Path("results")) -> Optional[ExtrinsicsGraph]:
-    """加载 Step4 外参（multi 优先，其次 stereo）。
+    """加载 Step4 外参（多相机位姿图）。
 
     Args:
         results_dir: 结果目录，默认 "results"。
@@ -93,25 +93,6 @@ def load_extrinsics_graph(*, results_dir: Path = Path("results")) -> Optional[Ex
             out[str(cam)] = T
 
         return ExtrinsicsGraph(reference=reference, T_cam_from_ref=out, source=str(multi_path))
-
-    stereo_path = results_dir / "stereo_extrinsics.json"
-    if stereo_path.exists():
-        data = json.loads(stereo_path.read_text(encoding="utf-8"))
-        R = np.asarray(data["R"], dtype=np.float64)
-        t_mm = np.asarray(data["t"], dtype=np.float64).reshape(3)
-
-        # stereoCalibrate 的 t 单位跟 objectPoints 一致：本仓库 Step4 使用 mm。
-        t_m = t_mm / 1000.0
-
-        # 约定：Cr_T_Cl（右 <- 左）
-        Cr_T_Cl = _make_transform(R, t_m, "Cr_T_Cl")
-
-        reference = "left"
-        out = {
-            "left": np.eye(4, dtype=np.float64),
-            "right": Cr_T_Cl,
-        }
-        return ExtrinsicsGraph(reference=reference, T_cam_from_ref=out, source=str(stereo_path))
 
     return None
 
