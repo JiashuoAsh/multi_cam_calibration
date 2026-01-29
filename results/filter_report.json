@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-29T19:01:04.404863",
+  "timestamp": "2026-01-29T21:57:17.195438",
   "mode": "multi_camera",
   "config_path": "config/apriltag_config.json",
   "cameras": [
@@ -12,12 +12,12 @@
   "per_camera": {
     "cam0": {
       "raw": 303,
-      "valid": 100,
-      "invalid": 6,
+      "valid": 175,
+      "invalid": 128,
       "filtered_dir": "images/filtered/cam0",
       "scan": {
         "limits": {
-          "target_valid": 100,
+          "target_valid": 500,
           "max_total": 0,
           "max_seconds": 0.0
         },
@@ -26,29 +26,29 @@
           "seed": 0
         },
         "workers": 24,
-        "submitted": 153,
-        "completed": 106,
-        "elapsed_s": 77.72303480000119
+        "submitted": 303,
+        "completed": 303,
+        "elapsed_s": 181.90972320000583
       },
       "perf": {
-        "total": 106,
-        "valid": 100,
-        "cache_hit": 0,
-        "cache_miss": 106,
+        "total": 303,
+        "valid": 175,
+        "cache_hit": 142,
+        "cache_miss": 161,
         "prefilter_skipped": 0,
         "error": 0,
-        "mean_detect_ms": 9399.10383679122,
-        "p95_detect_ms": 17670.863674997236
+        "mean_detect_ms": 24329.557232297604,
+        "p95_detect_ms": 38767.57799999905
       }
     },
     "cam1": {
       "raw": 500,
-      "valid": 100,
-      "invalid": 44,
+      "valid": 391,
+      "invalid": 109,
       "filtered_dir": "images/filtered/cam1",
       "scan": {
         "limits": {
-          "target_valid": 100,
+          "target_valid": 500,
           "max_total": 0,
           "max_seconds": 0.0
         },
@@ -57,29 +57,29 @@
           "seed": 0
         },
         "workers": 24,
-        "submitted": 191,
-        "completed": 144,
-        "elapsed_s": 204.10026619999553
+        "submitted": 500,
+        "completed": 500,
+        "elapsed_s": 494.3568701999902
       },
       "perf": {
-        "total": 144,
-        "valid": 100,
-        "cache_hit": 0,
-        "cache_miss": 144,
+        "total": 500,
+        "valid": 391,
+        "cache_hit": 190,
+        "cache_miss": 310,
         "prefilter_skipped": 0,
         "error": 0,
-        "mean_detect_ms": 17041.552779860365,
-        "p95_detect_ms": 40333.61669999431
+        "mean_detect_ms": 37680.63996709656,
+        "p95_detect_ms": 44336.25486499877
       }
     },
     "cam2": {
       "raw": 351,
-      "valid": 100,
-      "invalid": 132,
+      "valid": 171,
+      "invalid": 180,
       "filtered_dir": "images/filtered/cam2",
       "scan": {
         "limits": {
-          "target_valid": 100,
+          "target_valid": 500,
           "max_total": 0,
           "max_seconds": 0.0
         },
@@ -88,29 +88,29 @@
           "seed": 0
         },
         "workers": 24,
-        "submitted": 279,
-        "completed": 232,
-        "elapsed_s": 352.4554372999992
+        "submitted": 351,
+        "completed": 351,
+        "elapsed_s": 84.39595650001138
       },
       "perf": {
-        "total": 232,
-        "valid": 100,
-        "cache_hit": 0,
-        "cache_miss": 232,
+        "total": 351,
+        "valid": 171,
+        "cache_hit": 264,
+        "cache_miss": 87,
         "prefilter_skipped": 0,
         "error": 0,
-        "mean_detect_ms": 30081.455148276415,
-        "p95_detect_ms": 41151.144770000246
+        "mean_detect_ms": 20005.482565517766,
+        "p95_detect_ms": 37275.588429992786
       }
     },
     "cam3": {
       "raw": 500,
-      "valid": 100,
-      "invalid": 15,
+      "valid": 444,
+      "invalid": 56,
       "filtered_dir": "images/filtered/cam3",
       "scan": {
         "limits": {
-          "target_valid": 100,
+          "target_valid": 500,
           "max_total": 0,
           "max_seconds": 0.0
         },
@@ -119,24 +119,24 @@
           "seed": 0
         },
         "workers": 24,
-        "submitted": 162,
-        "completed": 115,
-        "elapsed_s": 98.43902019999223
+        "submitted": 500,
+        "completed": 500,
+        "elapsed_s": 551.021568199998
       },
       "perf": {
-        "total": 115,
-        "valid": 100,
-        "cache_hit": 0,
-        "cache_miss": 115,
+        "total": 500,
+        "valid": 444,
+        "cache_hit": 160,
+        "cache_miss": 340,
         "prefilter_skipped": 0,
         "error": 0,
-        "mean_detect_ms": 6425.256259130243,
-        "p95_detect_ms": 31488.3347200026
+        "mean_detect_ms": 36386.83900970603,
+        "p95_detect_ms": 46246.15284500178
       }
     }
   },
   "frame_stats": {
-    "unique_frame_keys_with_any_valid": 400,
+    "unique_frame_keys_with_any_valid": 1181,
     "frame_keys_with_at_least_2_cameras_valid": 0,
     "frame_keys_with_all_cameras_valid": 0
   }

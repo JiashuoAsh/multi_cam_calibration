@@ -51,6 +51,7 @@ import glob
 import json
 import os
 import shutil
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -81,7 +82,10 @@ from libs.apriltag_perf.scan import ScanLimits, ScanOrder, iter_scan_parallel_or
 from libs.apriltag_perf.service import CachedAprilTagDetector
 
 # 最大有效图像数量（用于内参标定）
-MAX_VALID_IMAGES = 100
+# 说明：OpenCV 的 calibrateCamera 会为每张图像引入 6 个外参变量（rvec/tvec），
+# 当 view 数过大（例如 300+）时，优化问题会变得非常大且可能“看起来卡死”。
+# 实践中内参标定通常 30~120 张高质量图像就足够。
+MAX_VALID_IMAGES = 120
 MIN_TAGS = 1
 
 
@@ -158,6 +162,108 @@ def _summarize_step3_results(results: list[_Step3DetectResult]) -> dict[str, Any
         "mean_detect_ms": float(mean_ms),
         "p95_detect_ms": float(p95_ms),
     }
+
+
+def _view_signature(
+    img_pts: np.ndarray,
+    image_size: tuple[int, int],
+    *,
+    bins: int,
+) -> tuple[int, int, int, int]:
+    """为单张视图生成一个“近似姿态签名”，用于去重。
+
+    设计目标：
+      - 把视频中大量相似/重复帧合并掉，避免 calibrateCamera 的 view 数爆炸。
+      - 同时尽量保留“覆盖整个画面”的视图（质心分布更均匀）。
+
+    签名由以下特征量化而来：
+      1) 检测点云质心 (cx, cy)
+      2) 点云尺度（平均半径）
+      3) 点云主方向（2D PCA 主轴角度）
+
+    Args:
+        img_pts: (N,2) 2D 点（像素坐标）。
+        image_size: (w, h)。
+        bins: 量化桶数量：越小越容易把相似视图合并（去重更强）；越大越倾向保留差异。
+    """
+    pts = np.asarray(img_pts, dtype=np.float64).reshape(-1, 2)
+    w, h = int(image_size[0]), int(image_size[1])
+    if pts.size == 0 or w <= 0 or h <= 0:
+        return (0, 0, 0, 0)
+
+    cx = float(np.mean(pts[:, 0]))
+    cy = float(np.mean(pts[:, 1]))
+    dx = pts[:, 0] - cx
+    dy = pts[:, 1] - cy
+    r = np.sqrt(dx * dx + dy * dy)
+    scale = float(np.mean(r)) if r.size > 0 else 0.0
+
+    # 2D PCA 主方向（忽略符号，映射到 [-pi/2, pi/2)）
+    cov = np.cov(np.stack([dx, dy], axis=0)) if pts.shape[0] >= 2 else np.eye(2)
+    ang = 0.0
+    try:
+        # tan(2*theta) = 2*cov_xy / (cov_xx - cov_yy)
+        ang = 0.5 * float(np.arctan2(2.0 * float(cov[0, 1]), float(cov[0, 0] - cov[1, 1])))
+    except Exception:
+        ang = 0.0
+
+    # 归一化到 [0,1]，再量化
+    cx_n = float(np.clip(cx / float(w), 0.0, 1.0))
+    cy_n = float(np.clip(cy / float(h), 0.0, 1.0))
+    sc_n = float(np.clip(scale / float(max(w, h)), 0.0, 1.0))
+    # ang in [-pi/2, pi/2) -> [0,1)
+    ang_n = float((ang + (np.pi / 2.0)) / np.pi)
+    ang_n = float(np.clip(ang_n, 0.0, 0.999999))
+
+    b = int(max(4, int(bins)))
+    return (
+        int(cx_n * b),
+        int(cy_n * b),
+        int(sc_n * b),
+        int(ang_n * b),
+    )
+
+
+def _dedup_views(
+    *,
+    all_obj_pts: list[np.ndarray],
+    all_img_pts: list[np.ndarray],
+    valid_images: list[str],
+    image_size: tuple[int, int],
+    bins: int,
+) -> tuple[list[np.ndarray], list[np.ndarray], list[str], dict[str, Any]]:
+    """按视图签名去重（保留信息量更高的一张）。"""
+    n0 = int(len(valid_images))
+    if n0 == 0:
+        return all_obj_pts, all_img_pts, valid_images, {"before": 0, "after": 0, "removed": 0, "bins": int(bins)}
+
+    best: dict[tuple[int, int, int, int], int] = {}
+
+    for i in range(n0):
+        sig = _view_signature(all_img_pts[i], image_size, bins=int(bins))
+
+        # 评分：点数越多，一般约束越强；用于同签名冲突时择优。
+        score = int(np.asarray(all_img_pts[i]).reshape(-1, 2).shape[0])
+        j = best.get(sig)
+        if j is None:
+            best[sig] = i
+        else:
+            score_j = int(np.asarray(all_img_pts[j]).reshape(-1, 2).shape[0])
+            if score > score_j:
+                best[sig] = i
+
+    keep_idx = sorted(set(best.values()))
+    all_obj_pts2 = [all_obj_pts[i] for i in keep_idx]
+    all_img_pts2 = [all_img_pts[i] for i in keep_idx]
+    valid_images2 = [valid_images[i] for i in keep_idx]
+
+    n1 = int(len(valid_images2))
+    return (
+        all_obj_pts2,
+        all_img_pts2,
+        valid_images2,
+        {"before": n0, "after": n1, "removed": int(n0 - n1), "bins": int(bins)},
+    )
 
 
 def _build_algo_key(config: dict[str, Any], *, profile: str, camera: str) -> dict[str, Any]:
@@ -372,6 +478,8 @@ def calibrate_camera_apriltag(
     prefetch: int = 0,
     cache_cfg: CacheConfig | None = None,
     prefilter_cfg: PrefilterConfig | None = None,
+    dedup_views: bool = False,
+    dedup_bins: int = 80,
 ):
     """
     使用 AprilTag 标定单个相机的内参
@@ -502,7 +610,6 @@ def calibrate_camera_apriltag(
     all_obj_pts: list[np.ndarray] = []
     all_img_pts: list[np.ndarray] = []
     valid_images: list[str] = []
-    valid_image_data: list[dict[str, Any]] = []
     image_size = None
     n_read_fail = 0
     n_low_tags = 0
@@ -551,15 +658,6 @@ def calibrate_camera_apriltag(
 
         if save_visualization:
             assert detection_dir is not None
-            valid_image_data.append(
-                {
-                    "image": img.copy(),
-                    "corners": corners,
-                    "ids": ids,
-                    "index": len(valid_images),
-                }
-            )
-
             vis_img = img.copy()
             cv2.aruco.drawDetectedMarkers(vis_img, corners, ids)
             info_text = f"Image {len(valid_images)}: {len(ids)} tags detected"
@@ -604,11 +702,37 @@ def calibrate_camera_apriltag(
 
     assert image_size is not None
 
+    # 可选：去掉重复视图（常见于视频逐帧抽取/板子停在同一位置）。
+    # 说明：去重的目的不是“减少图片”，而是减少重复约束，让优化问题更小、收敛更快。
+    if bool(dedup_views) and len(valid_images) > 0:
+        all_obj_pts, all_img_pts, valid_images, dd = _dedup_views(
+            all_obj_pts=all_obj_pts,
+            all_img_pts=all_img_pts,
+            valid_images=valid_images,
+            image_size=image_size,
+            bins=int(dedup_bins),
+        )
+        print(
+            f"  - 视图去重: before={dd['before']} after={dd['after']} removed={dd['removed']} (bins={dd['bins']})"
+        )
+
     # 执行相机标定
     print("  - 正在标定...")
 
+    # 可观测性：打印输入规模，便于判断“是真的卡死”还是在做一个很大的优化问题。
+    n_views = int(len(all_obj_pts))
+    total_points = int(sum(int(pts.shape[0]) for pts in all_img_pts))
+    avg_points = float(total_points) / float(max(1, n_views))
+    print(f"  - 标定输入: views={n_views}, total_points={total_points}, avg_points_per_view={avg_points:.1f}")
+    if n_views >= 200:
+        print(
+            "  提示: 当前 view 数较大，OpenCV 内参优化可能非常慢。"
+            "建议用 --max_valid_images 设为 60~150，或先用 --cameras 单独跑某个相机。"
+        )
+
     # OpenCV 允许用 None 让其自动初始化；但类型存根对 None 不友好。
     none_umat: Any = None
+    t0 = time.perf_counter()
     ret, K, dist, rvecs, tvecs = cv2.calibrateCamera(
         all_obj_pts,
         all_img_pts,
@@ -616,6 +740,8 @@ def calibrate_camera_apriltag(
         none_umat,
         none_umat,
     )
+    t1 = time.perf_counter()
+    print(f"  - 标定耗时: {t1 - t0:.2f} 秒")
 
     # OpenCV 返回的 ret 是全局 RMS 重投影误差（单位：像素）
     print(f"  - RMS(ret, OpenCV): {ret:.4f} 像素")
@@ -635,8 +761,13 @@ def calibrate_camera_apriltag(
         per_image_errors.append(error)
 
         # 保存重投影误差可视化
-        if save_visualization and i < len(valid_image_data):
-            vis_img = valid_image_data[i]["image"].copy()
+        if save_visualization:
+            assert reprojection_dir is not None
+            # 注意：不要把所有图像缓存到内存里（数据集一大很容易爆内存/触发换页，表现为卡死）。
+            # 这里按需从磁盘读取用于可视化。
+            vis_img = cv2.imread(valid_images[i])
+            if vis_img is None:
+                continue
             img_pts_orig = det
             img_pts_reproj = img_pts2.reshape(-1, 2)
 
@@ -650,9 +781,7 @@ def calibrate_camera_apriltag(
                 cv2.line(vis_img, pt_orig, pt_reproj, (255, 0, 0), 1)  # 蓝线：误差
 
             # 显示误差信息
-            error_text = (
-                f"Image {valid_image_data[i]['index']}: Mean Error = {error:.3f} px"
-            )
+            error_text = f"Image {i + 1}: Mean Error = {error:.3f} px"
             cv2.putText(
                 vis_img,
                 error_text,
@@ -672,9 +801,7 @@ def calibrate_camera_apriltag(
                 2,
             )
 
-            reproj_path = (
-                f"{reprojection_dir}/{valid_image_data[i]['index']:02d}_error_map.jpg"
-            )
+            reproj_path = f"{reprojection_dir}/{i + 1:02d}_error_map.jpg"
             _safe_imwrite(reproj_path, vis_img)
 
     mean_error /= len(all_obj_pts)
@@ -811,6 +938,18 @@ def main():
         type=int,
         default=5,
         help="每张图像至少需要检测到多少个标签才算有效（默认 5）",
+    )
+
+    parser.add_argument(
+        "--dedup_views",
+        action="store_true",
+        help="对有效视图按(质心/尺度/主方向)做量化去重，删除重复帧以加速标定",
+    )
+    parser.add_argument(
+        "--dedup_bins",
+        type=int,
+        default=80,
+        help="视图去重量化桶数量（越小越容易合并，默认 80）",
     )
 
     # 性能优先：流式扫描/早停/并行/缓存/预筛选
@@ -1057,6 +1196,8 @@ def main():
             prefetch=int(args.prefetch),
             cache_cfg=cache_cfg,
             prefilter_cfg=prefilter_cfg,
+            dedup_views=bool(args.dedup_views),
+            dedup_bins=int(args.dedup_bins),
         )
 
         if not success:

@@ -72,8 +72,8 @@
       "_comment": "每个相机可用 raw_dir 或 raw_glob 指定原始图片来源。raw_dir 会自动扫描 png/jpg/jpeg/bmp。",
       "cam0": {"raw_glob": "images/raw/cam0_DA8199303/*.bmp"},
       "cam1": {"raw_glob": "images/raw/cam1_DA8199402/*.bmp"},
-      "_cam2": {"raw_glob": "images/raw/cam2_DA8199243/*.bmp"},
-      "_cam3": {"raw_glob": "images/raw/cam3_DA8199285/*.bmp"}
+      "cam2": {"raw_glob": "images/raw/cam2_DA8199243/*.bmp"},
+      "cam3": {"raw_glob": "images/raw/cam3_DA8199285/*.bmp"}
     }
   },
 
@@ -142,7 +142,7 @@
     "min_tags_for_pose": 2,
     "_comment_min_tags_for_pose": "位姿估计最少需要的标签数，建议: 4-10，值越大要求越严格",
 
-    "max_images": 100,
+    "max_images": 500,
     "_comment_max_images": "目标采集的图像组数，建议: 20-50",
 
     "corner_refinement": "CORNER_REFINE_SUBPIX",
