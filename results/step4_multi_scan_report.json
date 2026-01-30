@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-29T21:53:42.180921",
+  "timestamp": "2026-01-30T02:23:36.371847",
   "image_root": "images/filtered",
   "cameras": [
     "cam0",
@@ -13,16 +13,16 @@
     "strategy": "uniform",
     "seed": 0,
     "limits": {
-      "target_valid": 70,
-      "max_total": 135,
+      "target_valid": 150,
+      "max_total": 383,
       "max_seconds": 0.0
     },
     "counters": {
-      "total_candidates": 135,
-      "submitted": 117,
-      "completed": 70,
-      "valid": 70,
-      "elapsed_s": 6.784657800002606
+      "total_candidates": 383,
+      "submitted": 225,
+      "completed": 178,
+      "valid": 150,
+      "elapsed_s": 11.486280999990413
     },
     "stop_reason": "target_valid_frames"
   },
@@ -39,15 +39,15 @@
     }
   },
   "detector_calls": {
-    "total_images": 165,
-    "cache_hit": 165,
+    "total_images": 526,
+    "cache_hit": 526,
     "cache_miss": 0,
     "prefilter_skipped": 0,
-    "error": 0,
+    "error": 90,
     "detect_ms_sum": 0.0
   },
   "pnp": {
-    "ok": 165,
+    "ok": 436,
     "fail": 0
   },
   "filters": {
@@ -55,20 +55,20 @@
     "poses_dropped_by_reproj": 0
   },
   "results": {
-    "poses_frames": 70,
-    "edges": 120
+    "poses_frames": 150,
+    "edges": 428
   },
   "frame_sync": {
     "per_cam_frames": {
-      "cam0": 100,
-      "cam1": 100,
-      "cam2": 100,
-      "cam3": 100
+      "cam0": 175,
+      "cam1": 391,
+      "cam2": 171,
+      "cam3": 444
     },
-    "candidate_frame_keys_ge2": 135,
+    "candidate_frame_keys_ge2": 383,
     "pair_intersections": {
       "cam0__cam1": {
-        "n": 69,
+        "n": 167,
         "sample": [
           "seq000060_f61",
           "seq000061_f62",
@@ -83,7 +83,7 @@
         ]
       },
       "cam0__cam2": {
-        "n": 34,
+        "n": 61,
         "sample": [
           "seq000131_f132",
           "seq000132_f133",
@@ -98,7 +98,7 @@
         ]
       },
       "cam0__cam3": {
-        "n": 41,
+        "n": 161,
         "sample": [
           "seq000060_f61",
           "seq000062_f63",
@@ -113,7 +113,7 @@
         ]
       },
       "cam1__cam2": {
-        "n": 13,
+        "n": 158,
         "sample": [
           "seq000131_f132",
           "seq000132_f133",
@@ -128,7 +128,7 @@
         ]
       },
       "cam1__cam3": {
-        "n": 60,
+        "n": 341,
         "sample": [
           "seq000026_f27",
           "seq000027_f28",
@@ -143,14 +143,18 @@
         ]
       },
       "cam2__cam3": {
-        "n": 6,
+        "n": 162,
         "sample": [
           "seq000000_f1",
           "seq000001_f2",
           "seq000002_f3",
           "seq000003_f4",
           "seq000014_f15",
-          "seq000015_f16"
+          "seq000015_f16",
+          "seq000132_f133",
+          "seq000133_f134",
+          "seq000134_f135",
+          "seq000136_f137"
         ]
       }
     },

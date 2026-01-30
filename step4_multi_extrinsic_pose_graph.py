@@ -1634,6 +1634,48 @@ def _summarize_ba_reproj_px(
     }
 
 
+def _filter_pose_maps_by_observations(
+    *,
+    poses_by_frame: Dict[str, Dict[str, PoseObs]],
+    paths_by_frame: Dict[str, Dict[str, Path]],
+    observations: Sequence[Tuple[str, str, np.ndarray, np.ndarray]],
+) -> Tuple[Dict[str, Dict[str, PoseObs]], Dict[str, Dict[str, Path]]]:
+    """按 BA 实际使用的观测集合过滤 poses/paths。
+
+    说明：
+    - BA 支持在第一次优化后做离群剔除（obs2），并可能二次优化。
+    - 误差汇总必须基于“最终参与 BA 的观测集合”，否则会出现：
+        - 最终 RMS(px) 看起来正常
+        - 但统计里的 mean/max 被已经剔除的极端离群观测污染，出现 1e30+ 级别的数字
+      这会误导判断“是不是算崩了”。
+    """
+
+    keep: set[tuple[str, str]] = set()
+    for fk, cam, _obj, _img in observations:
+        keep.add((str(fk), str(cam)))
+
+    poses_out: Dict[str, Dict[str, PoseObs]] = {}
+    paths_out: Dict[str, Dict[str, Path]] = {}
+    for fk, poses in poses_by_frame.items():
+        fk_s = str(fk)
+        new_poses: Dict[str, PoseObs] = {}
+        new_paths: Dict[str, Path] = {}
+        for cam, po in poses.items():
+            cam_s = str(cam)
+            if (fk_s, cam_s) not in keep:
+                continue
+            new_poses[cam_s] = po
+            p = (paths_by_frame.get(fk_s) or {}).get(cam_s)
+            if p is not None:
+                new_paths[cam_s] = p
+        if len(new_poses) > 0:
+            poses_out[fk_s] = new_poses
+            if len(new_paths) > 0:
+                paths_out[fk_s] = new_paths
+
+    return poses_out, paths_out
+
+
 def _prune_ba_observations(
     *,
     X_cam_from_ref: Dict[str, np.ndarray],
@@ -1974,13 +2016,13 @@ def main() -> int:
     parser.add_argument(
         "--ba_max_nfev",
         type=int,
-        default=3000,
+        default=1000,
         help="BA 最大迭代次数（离线可调大，默认 3000）。",
     )
     parser.add_argument(
         "--ba_prune_mean_px",
         type=float,
-        default=50.0,
+        default=30.0,
         help="BA 完成后按单观测 mean_px 剔除离群（像素，<=0 禁用；默认 50）。",
     )
     parser.add_argument(
@@ -2020,7 +2062,7 @@ def main() -> int:
     parser.add_argument(
         "--target_valid_frames",
         type=int,
-        default=70,
+        default=150,
         help="达到多少个‘有效帧’就提前停止（有效帧=至少两相机 PnP 成功，默认 50；0=不按此条件停止）。",
     )
     parser.add_argument(
@@ -2379,6 +2421,9 @@ def main() -> int:
             prune_mean_px=float(args.ba_prune_mean_px),
             min_keep_per_cam=int(args.ba_prune_min_keep_per_cam),
         )
+
+        # 最终用于统计/报告的观测集合：默认使用原始 obs；若剔除生效且二次优化，则使用 obs2。
+        obs_used = list(obs)
         if bool(prune_info.get("enabled")) and int(prune_info.get("after", 0)) < int(prune_info.get("before", 0)):
             print(
                 "\n离群观测剔除（基于 BA mean_px）："
@@ -2410,16 +2455,23 @@ def main() -> int:
             X_opt, Cref_T_B_opt = _unpack_ba_params(
                 x=x_opt, opt_cams=opt_cams, reference=reference, frames=frames
             )
+            obs_used = list(obs2)
         else:
             prune_info = {"enabled": bool(prune_info.get("enabled", False)), "changed": False}
+
+        poses_post, paths_post = _filter_pose_maps_by_observations(
+            poses_by_frame=poses_by_frame_solved,
+            paths_by_frame=paths_by_frame_solved,
+            observations=obs_used,
+        )
 
         ba_reproj = _summarize_ba_reproj_px(
             X_cam_from_ref=X_opt,
             Cref_T_B_by_frame=Cref_T_B_opt,
             cameras=cameras_solved,
             intrinsics=intrinsics,
-            poses_by_frame=poses_by_frame_solved,
-            paths_by_frame=paths_by_frame_solved,
+            poses_by_frame=poses_post,
+            paths_by_frame=paths_post,
             top_k=10,
         )
 

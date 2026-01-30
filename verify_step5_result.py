@@ -81,7 +81,7 @@ def load_calibration_results(*, camera: str) -> tuple[np.ndarray, np.ndarray, np
         raise ValueError(f"Step5 输出里没有相机 {camera}。可用相机：{cams}")
 
     B_T_C = np.asarray(base_calib["B_T_C"][camera], dtype=np.float64)
-    print(f"  ✓ 加载 B_T_C[{camera}]")
+    print(f"  [OK] 加载 B_T_C[{camera}]")
 
     intr_path = f"results/{camera}_intrinsics.json"
     if not os.path.exists(intr_path):
@@ -92,7 +92,7 @@ def load_calibration_results(*, camera: str) -> tuple[np.ndarray, np.ndarray, np
 
     K = np.asarray(intrinsics["camera_matrix"], dtype=np.float64)
     dist = np.asarray(intrinsics["dist_coeffs"], dtype=np.float64)
-    print(f"  ✓ 加载 {camera} 相机内参")
+    print(f"  [OK] 加载 {camera} 相机内参")
 
     return B_T_C, K, dist
 

@@ -16,7 +16,8 @@
     B_T_C_cam = B_T_Cref_graph @ inv(C_cam_T_Cref_graph)
 
 输出：
-- results/camera_to_base.json（与 Step5b 同一路径，字段增加 method/world_anchor 信息）
+- results/camera_to_base.json（相机位姿：B_T_C，Cam->Base）
+- results/base_to_camera_extrinsics.json（相机外参：C_T_B，Base->Cam，便于 OpenCV 使用）
 
 注意：
 - 本步骤不需要 AprilTag 图片，也不依赖 board_to_base_transform。
@@ -41,6 +42,7 @@ from libs.extrinsics_graph import (
     invert_transform,
     load_extrinsics_graph,
     propagate_B_T_C,
+    transform_payload,
 )
 from utils import load_config
 
@@ -229,16 +231,53 @@ def main() -> int:
         B_T_C: Dict[str, np.ndarray] = out["B_T_C"]
         methods: Dict[str, str] = out["methods"]
 
+        B_T_C_detail: Dict[str, Any] = {}
+        for cam, T in B_T_C.items():
+            B_T_C_detail[str(cam)] = transform_payload(
+                T,
+                parent_frame="base",
+                child_frame=f"camera:{cam}",
+                name=f"B_T_C[{cam}]",
+                include_inverse=False,
+            )
+
         # 保存
         os.makedirs("results", exist_ok=True)
         payload: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "method": "world_anchor",
+            "convention": {
+                "A_T_B": "B->A",
+                "apply": "p_A = A_T_B @ p_B",
+                "matrix": "A_T_B = [[R,t],[0,1]]",
+                "units": {"translation": "m"},
+            },
+            "meaning": {
+                "B_T_C": "将点从相机坐标系变到 base 坐标系（Cam->Base）。等价于：相机坐标系在 base 中的位姿表达。",
+                "opencv_note": "如需 OpenCV 常用外参方向（Base->Cam），请查看 results/base_to_camera_extrinsics.json。",
+            },
+            "frames": {
+                "world": "外部系统定义的世界坐标系（W）",
+                "base": "由 world_T_base 定义的底盘坐标系（B）",
+                "camera": "OpenCV 相机坐标系：x 右、y 下、z 前（常见约定）",
+            },
             "B_T_C": {cam: T.tolist() for cam, T in B_T_C.items()},
+            "B_T_C_detail": B_T_C_detail,
             "pose_stats": {
                 cam: {"method": methods.get(cam)} for cam in sorted(B_T_C.keys())
             },
             "propagation": out.get("propagation", {}),
+            "anchor": {
+                "reference_camera": out.get("anchor", {}).get("reference_camera"),
+                "W_T_B": np.asarray(out.get("anchor", {}).get("W_T_B")).tolist()
+                if out.get("anchor", {}).get("W_T_B") is not None
+                else None,
+                "W_T_reference_camera": np.asarray(
+                    out.get("anchor", {}).get("W_T_reference_camera")
+                ).tolist()
+                if out.get("anchor", {}).get("W_T_reference_camera") is not None
+                else None,
+            },
             "config_used": {
                 "camera_to_base_calibration": (config or {}).get(
                     "camera_to_base_calibration", {}
@@ -249,10 +288,43 @@ def main() -> int:
         with open("results/camera_to_base.json", "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, ensure_ascii=False)
 
+        # 单独输出 OpenCV 常用方向的外参：C_T_B（Base->Cam）
+        C_T_B_mats: Dict[str, np.ndarray] = {
+            cam: invert_transform(T, name=f"C_T_B[{cam}]") for cam, T in B_T_C.items()
+        }
+        C_T_B_detail: Dict[str, Any] = {}
+        for cam, T in C_T_B_mats.items():
+            C_T_B_detail[str(cam)] = transform_payload(
+                T,
+                parent_frame=f"camera:{cam}",
+                child_frame="base",
+                name=f"C_T_B[{cam}]",
+                include_inverse=False,
+            )
+
+        extrinsics_payload: Dict[str, Any] = {
+            "timestamp": datetime.now().isoformat(),
+            "method": "base_to_camera_extrinsics",
+            "source_pose_file": "results/camera_to_base.json",
+            "convention": payload["convention"],
+            "meaning": {
+                "C_T_B": "将点从 base 坐标系变到相机坐标系（Base->Cam）。若把 base 当作 OpenCV 的 world，则这就是 OpenCV 常用外参方向。"
+            },
+            "frames": payload["frames"],
+            "C_T_B": {cam: T.tolist() for cam, T in C_T_B_mats.items()},
+            "C_T_B_detail": C_T_B_detail,
+            "propagation": out.get("propagation", {}),
+            "anchor": payload.get("anchor", {}),
+            "config_used": payload.get("config_used", {}),
+        }
+        with open("results/base_to_camera_extrinsics.json", "w", encoding="utf-8") as f:
+            json.dump(extrinsics_payload, f, indent=2, ensure_ascii=False)
+
         print("=" * 60)
         print("Step 5c: world-anchor 相机->底盘外参求解完成")
         print("=" * 60)
-        print(f"✓ 已保存: results/camera_to_base.json")
+        print("[OK] 已保存: results/camera_to_base.json")
+        print("[OK] 已保存: results/base_to_camera_extrinsics.json")
         print(f"  相机数: {len(B_T_C)}")
         if out.get("propagation", {}).get("source"):
             print(f"  使用的 Step4 外参: {out['propagation']['source']}")

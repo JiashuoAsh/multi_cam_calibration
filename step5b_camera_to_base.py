@@ -32,7 +32,12 @@ import cv2
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from scipy.spatial.transform import Rotation
-from libs.extrinsics_graph import load_extrinsics_graph, propagate_B_T_C
+from libs.extrinsics_graph import (
+    invert_transform,
+    load_extrinsics_graph,
+    propagate_B_T_C,
+    transform_payload,
+)
 from utils import (
     load_config,
     get_step5_dataset,
@@ -1135,10 +1140,37 @@ def save_calibration_results(
         s["method"] = methods.get(cam)
         per_cam_stats[cam] = s
 
+    # 说明：位姿/外参分开写文件：
+    # - results/camera_to_base.json：仅保存相机“位姿”（B_T_C, Cam->Base）
+    # - results/base_to_camera_extrinsics.json：仅保存相机“外参”（C_T_B, Base->Cam）
+    B_T_C_detail: Dict[str, Any] = {}
+    for cam, T in B_T_C.items():
+        B_T_C_detail[str(cam)] = transform_payload(
+            T,
+            parent_frame="base",
+            child_frame=f"camera:{cam}",
+            name=f"B_T_C[{cam}]",
+            include_inverse=False,
+        )
+
     result: Dict[str, Any] = {
         "timestamp": datetime.now().isoformat(),
         "image_root": str(image_root.as_posix()),
+        "convention": {
+            "A_T_B": "B->A",
+            "apply": "p_A = A_T_B @ p_B",
+            "matrix": "A_T_B = [[R,t],[0,1]]",
+            "units": {"translation": "m"},
+        },
+        "meaning": {
+            "B_T_C": "将点从相机坐标系变到 base 坐标系（Cam->Base）。等价于：相机坐标系在 base 中的位姿表达。",
+        },
+        "frames": {
+            "base": "由 board_to_base_transform 定义的机器人底盘坐标系",
+            "camera": "OpenCV 相机坐标系：x 右、y 下、z 前（常见约定）",
+        },
         "B_T_C": {cam: T.tolist() for cam, T in B_T_C.items()},
+        "B_T_C_detail": B_T_C_detail,
         "pose_stats": per_cam_stats,
         "propagation": transform_data.get("propagation", {}),
         "config_used": {
@@ -1150,6 +1182,37 @@ def save_calibration_results(
     os.makedirs("results", exist_ok=True)
     with open("results/camera_to_base.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
+
+    # 单独输出 OpenCV 常用方向的外参：C_T_B（Base->Cam）
+    C_T_B_mats: Dict[str, np.ndarray] = {
+        cam: invert_transform(T, name=f"C_T_B[{cam}]") for cam, T in B_T_C.items()
+    }
+    C_T_B_detail: Dict[str, Any] = {}
+    for cam, T in C_T_B_mats.items():
+        C_T_B_detail[str(cam)] = transform_payload(
+            T,
+            parent_frame=f"camera:{cam}",
+            child_frame="base",
+            name=f"C_T_B[{cam}]",
+            include_inverse=False,
+        )
+
+    extrinsics_payload: Dict[str, Any] = {
+        "timestamp": datetime.now().isoformat(),
+        "method": "base_to_camera_extrinsics",
+        "source_pose_file": "results/camera_to_base.json",
+        "convention": result["convention"],
+        "meaning": {
+            "C_T_B": "将点从 base 坐标系变到相机坐标系（Base->Cam）。若把 base 当作 OpenCV 的 world，则这就是 OpenCV 常用外参方向。"
+        },
+        "frames": result["frames"],
+        "C_T_B": {cam: T.tolist() for cam, T in C_T_B_mats.items()},
+        "C_T_B_detail": C_T_B_detail,
+        "propagation": transform_data.get("propagation", {}),
+        "config_used": result.get("config_used", {}),
+    }
+    with open("results/base_to_camera_extrinsics.json", "w", encoding="utf-8") as f:
+        json.dump(extrinsics_payload, f, indent=2, ensure_ascii=False)
 
     # 单独输出 scan/perf 报告，便于对比不同参数的检测耗时、缓存命中率等。
     scan_reports = pose_data.get("scan_reports") or {}
@@ -1169,6 +1232,7 @@ def save_calibration_results(
         pass
 
     print(f"\n结果已保存到 results/camera_to_base.json")
+    print(f"外参已保存到 results/base_to_camera_extrinsics.json")
     print(f"  相机数: {len(B_T_C)}")
 
 

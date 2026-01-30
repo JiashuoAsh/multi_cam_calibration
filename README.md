@@ -279,6 +279,8 @@ $$
 输出：
 - `results/camera_to_base.json`
   - `B_T_C`: `{cam: 4x4}`（核心结果，Cam -> Base）
+ - `results/base_to_camera_extrinsics.json`
+   - `C_T_B`: `{cam: 4x4}`（便于 OpenCV 使用的外参方向，Base -> Cam）
 
 小贴士：
 - 如需排查坐标系/单位/传播逻辑，可加 `--verbose` 输出更多中间过程。

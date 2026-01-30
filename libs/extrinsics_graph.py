@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -71,6 +71,90 @@ def invert_transform(T: np.ndarray, name: str = "inv") -> np.ndarray:
     return _make_transform(R_inv, t_inv, name)
 
 
+def _transform_basic_payload(
+    T: np.ndarray,
+    *,
+    parent_frame: str,
+    child_frame: str,
+) -> Dict[str, Any]:
+    """将 4x4 齐次变换拆解为 JSON 友好格式。
+
+    说明：
+    - 本仓库约定 `A_T_B` 表示 B->A。
+    - 因此这里的 `parent_frame/child_frame` 表示：把点从 child 变到 parent。
+    - 也等价于：child 坐标系在 parent 中的“位姿表达”。
+    """
+
+    T = np.asarray(T, dtype=np.float64)
+    _ensure_transform(T, "transform_payload")
+
+    R = T[:3, :3]
+    t = T[:3, 3]
+
+    return {
+        "parent_frame": str(parent_frame),
+        "child_frame": str(child_frame),
+        "T": T.tolist(),
+        "R": R.tolist(),
+        "t": t.tolist(),
+    }
+
+
+def transform_payload(
+    T: np.ndarray,
+    *,
+    parent_frame: str,
+    child_frame: str,
+    name: str = "T",
+    include_inverse: bool = True,
+) -> Dict[str, Any]:
+    """生成带“求逆/原点坐标”信息的变换 payload（用于写入结果 JSON）。
+
+    Args:
+        T: 4x4 齐次变换，表示 child->parent。
+        parent_frame: 变换目标坐标系名。
+        child_frame: 变换源坐标系名。
+        name: 仅用于内部报错/调试标识。
+
+    Args:
+        include_inverse: 是否在 payload 中包含 inverse（以及由此得到的 origin_parent_in_child）。
+            - True：适合调试时“一份文件里看正反两个方向”。
+            - False：适合“位姿/外参分文件输出”场景，避免在一个文件里混入另一个方向。
+
+    Returns:
+        JSON 友好的 dict。
+        - 总是包含：T/R/t、origin_child_in_parent。
+        - 若 include_inverse=True：额外包含 inverse、origin_parent_in_child。
+    """
+
+    T = np.asarray(T, dtype=np.float64)
+    _ensure_transform(T, name)
+
+    payload = _transform_basic_payload(
+        T,
+        parent_frame=parent_frame,
+        child_frame=child_frame,
+    )
+
+    T_inv = invert_transform(T, name=f"inv({name})")
+    inv_payload = _transform_basic_payload(
+        T_inv,
+        parent_frame=child_frame,
+        child_frame=parent_frame,
+    )
+
+    # 便于人读：child 原点在 parent 里的坐标，等于平移向量 t。
+    payload["origin_child_in_parent"] = payload["t"]
+
+    if not include_inverse:
+        return payload
+
+    payload["inverse"] = inv_payload
+    # 便于人读：parent 原点在 child 里的坐标（来自 inverse.t）。
+    payload["origin_parent_in_child"] = inv_payload["t"]
+    return payload
+
+
 def load_extrinsics_graph(*, results_dir: Path = Path("results")) -> Optional[ExtrinsicsGraph]:
     """加载 Step4 外参（多相机位姿图）。
 
@@ -90,6 +174,17 @@ def load_extrinsics_graph(*, results_dir: Path = Path("results")) -> Optional[Ex
         for cam, entry in (data.get("T_cam_from_ref", {}) or {}).items():
             T = np.asarray(entry["T"], dtype=np.float64)
             _ensure_transform(T, f"multi.T_cam_from_ref[{cam}]")
+
+            # 说明：历史上 Step4 的平移有两种常见单位来源：
+            # - 若 3D 点用米（m），则平移通常在 0~2 量级；
+            # - 若 3D 点用毫米（mm），则平移常在几百~几千量级。
+            # Step5(b/c) 的输入（W_T_B 等）与本仓库其它模块都以“米”为主，
+            # 因此这里做一个保守的启发式归一化：当平移范数明显过大时，按 mm->m 缩放。
+            t_norm = float(np.linalg.norm(T[:3, 3]))
+            if t_norm > 5.0:
+                T = T.copy()
+                T[:3, 3] = T[:3, 3] / 1000.0
+
             out[str(cam)] = T
 
         return ExtrinsicsGraph(reference=reference, T_cam_from_ref=out, source=str(multi_path))
