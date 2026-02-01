@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-30T02:44:32.370258",
+  "timestamp": "2026-02-01T15:33:32.596071",
   "reference": "cam0",
   "cameras": [
     "cam0",
@@ -14,6 +14,7 @@
     "cam3"
   ],
   "note": "T_cam_from_ref 表示 Cam_i <- Cam_ref（与本工程 Cr_T_Cl 命名一致：目标在前，源在后）",
+  "translation_unit": "mm",
   "T_cam_from_ref": {
     "cam0": {
       "T": [
@@ -233,7 +234,8 @@
       "min_keep_per_cam": 3,
       "before": 419,
       "after": 389,
-      "dropped_frames": 12
+      "dropped_frames": 12,
+      "changed": true
     }
   }
 }

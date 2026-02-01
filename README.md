@@ -1,4 +1,6 @@
-# multi_cam_cali_apriltag
+# 多相机标定（AprilTag）
+
+> Python 包名：`mcca`
 
 本仓库用于基于 **AprilTag 标定板** 的相机标定，支持：
 
@@ -94,6 +96,20 @@ OpenCV 的针孔投影模型及其相关 API 采用如下约定：外参 $[R|t]$
 
 ## 快速开始（推荐：配置驱动 + 一键流水线）
 
+### 虚拟环境（uv）
+
+uv 默认在项目根目录创建虚拟环境目录 `.venv`。本仓库源码包目录也叫 `mcca/`，因此虚拟环境目录**不能直接命名为 `mcca`**（会与源码目录冲突）。
+
+建议统一使用 `.venv-mcca`，并设置环境变量 `UV_PROJECT_ENVIRONMENT=.venv-mcca` 让 uv 固定使用该目录：
+
+- 在 VS Code 中：工作区设置已配置该环境变量与默认解释器路径（见 `.vscode/settings.json`）。
+- 在外部终端中：请自行设置 `UV_PROJECT_ENVIRONMENT`，否则 uv 可能会重新创建 `.venv`。
+
+补充：建议把虚拟环境建在仓库根目录（即 `multi_cam_cali_apriltag/.venv-mcca/`）。因此如果你在仓库目录里手动激活：
+
+- Git Bash（MINGW64）：`source .venv-mcca/Scripts/activate`
+- PowerShell：`.\\.venv-mcca\\Scripts\\Activate.ps1`
+
 1) 复制模板并修改配置：
 
 - 配置文件：`config/apriltag_config.json`
@@ -106,14 +122,42 @@ OpenCV 的针孔投影模型及其相关 API 采用如下约定：外参 $[R|t]$
 3) 运行流水线：
 
 - 仅跑 Step2~Step4：
-  - `python run_calibration_pipeline.py --config config/apriltag_config.json`
+  - `python -m mcca.entry.pipeline --config config/apriltag_config.json`
+- 仅跑 Step2~Step4（等价方式，使用 uv/console script）：
+  - `uv run multi-cam-cali-apriltag-pipeline --config config/apriltag_config.json`
 - 跑 Step1~Step4（含视频抽帧）：
-  - `python run_calibration_pipeline.py --all --config config/apriltag_config.json`
+  - `python -m mcca.entry.pipeline --all --config config/apriltag_config.json`
 - 若启用 `step5_dataset.enabled=true`，且你使用 `--all`，流水线会自动包含 Step5。
 
 产物：
 - 每一步日志：`results/pipeline_logs/`
 - 汇总报告：`results/pipeline_report.json`
+
+---
+
+## 代码结构（开发者参考）
+
+本仓库的核心可复用逻辑集中在 Python 包 `mcca/` 下：
+
+- `mcca.entry.*`：入口层（CLI/参数解析/组装依赖/落盘），只调用 core/adapters
+- `mcca.core.*`：纯逻辑/算法（例如：
+  - `core/config.py`：配置读取
+  - `core/board.py`：标定板几何与 ArUco 字典
+  - `core/datasets.py`：数据集扫描与相机列表解析
+  - `core/detection.py`：检测参数/ROI/AprilTag 检测
+  - `core/pose.py`：PnP 位姿估计
+  - `core/rigid.py`：刚体变换基础（4x4 检查/构造/求逆）
+  - `core/lie.py`：SO(3)/SE(3) 的 exp/log
+  - `core/camera_to_base_world_anchor.py`：Step5c(world-anchor) 的纯求解逻辑
+  - `core/visualization.py`：可视化与质量评估
+  )
+- `mcca.adapters.*`：与 IO/缓存/性能相关的封装
+- `mcca.tools.*`：开发者工具脚本
+  - `mcca.tools.compute_fov`：基于 Step3 的内参 JSON 计算 HFOV/VFOV/DFOV
+    - 运行：`python -m mcca.tools.compute_fov "results/*_intrinsics.json"`
+    - 预期输出：终端打印表格；可选写 JSON：`--json-out results/fov_report.json`
+
+说明：历史上存在的旧实现入口（例如根目录的 `utils.py`、`libs/`）已直接删除，避免新旧并存造成误用。
 
 ---
 
@@ -179,7 +223,7 @@ $$
 
 如果你已经能获取到“世界坐标系”下的绝对位姿（例如动捕/SLAM/GNSS），可以不拍 Step5 的 AprilTag 图片，直接用世界位姿锚点求相机->底盘外参。
 
-- 脚本：`step5c_camera_to_base_from_world.py`
+- 入口：`python -m mcca.entry.step5c_world_anchor`
 - 配置：`camera_to_base_calibration.mode = "world_anchor"`
 - 需要提供：
   - `world_T_base`（$W_T_B$）
@@ -191,12 +235,12 @@ $$
 ## 每个 Step 需要什么数据？会产出什么？
 
 ### Step1：从视频抽帧（可选）
-- 脚本：`step1_extract_imgs_from_video.py`
+- 入口：`python -m mcca.entry.step1_extract_imgs_from_video`
 - 依赖：config 的 `camera_settings` + `video_extract`
 - 输出：`images/raw/<cam>/...`（名称来自 `camera_settings.camera_names`，例如 cam0/cam1）
 
 ### Step2：筛选包含标定板的图片
-- 脚本：`step2_filter_images.py`
+- 入口：`python -m mcca.entry.step2_filter_images`
 - 输入：
   - 若 `image_dataset.enabled=true`：来自 `image_dataset.cameras.*.raw_dir/raw_glob`
 - 输出：
@@ -205,12 +249,12 @@ $$
   - 可视化（可选）：`results/visualization/step2_filtering/<cam>/...`
 
 ### Step3：内参标定（多相机）
-- 脚本：`step3_intrinsic_apriltag.py`
+- 入口：`python -m mcca.entry.step3_intrinsic_apriltag`
 - 输入：优先使用 `images/filtered/<cam>/...`（若为空会回退到 raw）
 - 输出：`results/<cam>_intrinsics.json`
 
-### Step4：相机间外参（pose graph，支持 2+ 相机）
-- 脚本：`step4_multi_extrinsic_pose_graph.py`
+### Step4：相机间外参（多相机，支持 BA / pose_graph）
+- 入口：`python -m mcca.entry.step4_multi_extrinsic`
 
 数据需求（必须）：
 - 每个相机一份内参：`results/<cam>_intrinsics.json`
@@ -240,11 +284,13 @@ $$
   - 是否需要开启/调整 ROI 或 auto ROI 提升检测稳定性
 
 输出：
-- `results/multi_camera_extrinsics.json`（`T_cam_from_ref`：Cam <- Ref）
+- `results/multi_camera_extrinsics.json`（`T_cam_from_ref`：Cam <- Ref；`translation_unit="mm"`，下游读取时会统一换算到 m）
+- `results/multi_camera_poses.json`（`T_ref_from_cam`：Ref <- Cam；相机位姿，便于阅读/可视化）
 - `results/multi_camera_pose_graph_report.json`
+- `results/step4_multi_scan_report.json`
 
 ### Step5：相机 -> 底盘外参（多相机）
-- 脚本：`step5b_camera_to_base.py`
+- 入口：`python -m mcca.entry.step5b_camera_to_base`
 
 数据需求（必须）：
 - `board_to_base_transform`（config 必须配置，且物理测量要靠谱）
@@ -272,25 +318,25 @@ $$
 4) 运行 Step5b 得到 `B_T_C`。
 
 质量检查建议：
-- 跑 `verify_step5_result.py --camera <cam>` 做快速 sanity check（看重投影/几何一致性等）。
+- 跑 `python -m mcca.tools.verify_step5_result --camera <cam>` 做快速 sanity check（看重投影/几何一致性等）。
 - 如果你有多次采集（不同批次/不同板位置），建议用 Step6 融合：
-  - `step6_fuse_step5_results.py` 输出 `results/camera_to_base_fused.json`
+  - `python -m mcca.entry.step6_fuse_step5_results` 输出 `results/camera_poses_B_T_C_fused.json`
 
 输出：
-- `results/camera_to_base.json`
-  - `B_T_C`: `{cam: 4x4}`（核心结果，Cam -> Base）
- - `results/base_to_camera_extrinsics.json`
-   - `C_T_B`: `{cam: 4x4}`（便于 OpenCV 使用的外参方向，Base -> Cam）
+- `results/camera_poses_B_T_C.json`
+  - `B_T_C`: `{cam: 4x4}`（相机位姿，Cam -> Base）
+- `results/camera_extrinsics_C_T_B.json`
+  - `C_T_B`: `{cam: 4x4}`（相机外参，Base -> Cam；便于 OpenCV 使用）
 
 小贴士：
 - 如需排查坐标系/单位/传播逻辑，可加 `--verbose` 输出更多中间过程。
 
 ### Step6：融合多次 Step5 结果（可选）
-- 脚本：`step6_fuse_step5_results.py`
-- 输入：多份 `camera_to_base.json`（可给文件/目录/glob）
+- 入口：`python -m mcca.entry.step6_fuse_step5_results`
+- 输入：多份 `camera_poses_B_T_C.json`（可给文件/目录/glob）
 - 输出：
-  - `results/camera_to_base_fused.json`
-  - `results/camera_to_base_fusion_report.json`
+  - `results/camera_poses_B_T_C_fused.json`
+  - `results/camera_poses_B_T_C_fusion_report.json`
 
 ---
 
@@ -310,7 +356,14 @@ $$
 5) **光照/运动模糊**：AprilTag 角点不稳会导致 PnP 抖动；Step5 建议标定板完全固定且清晰。
 
 6) **单位**：
-- Step3/Step4/Step5 内部统一使用米（m），但标定板点初始配置是 mm，会在代码里转换。
+- Step3/Step5 的求解与输出统一使用米（m）。
+- Step4 的位姿图求解使用与标定板 3D 点相同的单位（配置为 mm），因此 Step4 输出会显式标注 `translation_unit="mm"`。
+- 下游（例如 Step5）读取 Step4 结果时会根据 `translation_unit` 自动换算到米（m），避免出现“把 mm 当成 m”的尺度错误。
+
+补充说明：
+- Step4 输出的 `results/multi_camera_extrinsics.json` 会显式写入 `translation_unit`，并在 Step5 加载时做校验。
+  - 若你使用的是旧版本生成的结果文件（缺少 `translation_unit`），请重新运行 Step4 生成新版文件；
+    否则 Step5 会报错提示（避免“静默缩放导致尺度悄悄变化”）。
 
 ---
 

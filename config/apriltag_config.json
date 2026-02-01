@@ -30,7 +30,7 @@
   },
 
   "video_extract": {
-    "_comment": "Step1 抽帧参数（step1_extract_imgs_from_video.py 会读取这里）。",
+    "_comment": "Step1 抽帧参数（mcca.entry.step1_extract_imgs_from_video 会读取这里）。",
 
     "every_n": 10,
     "_comment_every_n": "每 N 帧保存 1 帧（越大越稀疏，默认 10）",
@@ -78,21 +78,26 @@
   },
 
   "step5_dataset": {
-    "_comment": "（可选）Step5 相机->底盘外参标定的数据集输入：启用后 step5b_camera_to_base.py 将按此配置自动处理多相机。",
-    "_comment_enabled": "false=保持默认 images/step5/<cam>/ 扫描；true=按 cameras 指定的路径读取。",
-    "enabled": false,
+    "_comment": "Step5 输入（AprilTag PnP）：用于求解相机相对 base/world 的外参。Step5b 会按此数据集读取图片并做 PnP。",
+    "_comment_enabled": "false：使用默认 images/step5/<cam>/ 扫描；true：按 cameras.<cam>.raw_dir/raw_glob 指定的路径读取。",
+    "enabled": true,
 
     "image_root": "images/step5",
 
     "cameras": {
-      "_comment": "每个相机可用 raw_dir 或 raw_glob 指定 Step5 图片来源；若留空则默认使用 image_root/<cam>。",
-      "cam0": {"raw_dir": "images/step5/cam0"},
-      "cam1": {"raw_dir": "images/step5/cam1"}
+      "_comment": "仅需列出‘能稳定看到标定板’的相机。其余相机（看不到板）可依赖 Step4 外参图 results/multi_camera_extrinsics.json 进行传播。",
+      "_comment_example": "示例：tmp_by_camera/<cam_serial>/ 目录下为 bmp 图片序列。",
+      "cam1": {"raw_dir": "tmp_by_camera/cam1_DA8199402"},
+      "cam3": {"raw_dir": "tmp_by_camera/cam3_DA8199285"}
     }
   },
 
   "camera_to_base_calibration": {
-    "_comment": "Step5（camera->base）标定方式选择：apriltag_pnp=使用 step5b（需要 Step5 图片 + board_to_base_transform）；world_anchor=使用 step5c（需要世界位姿锚点 + Step4 外参，不需要 Step5 图片）。",
+    "_comment": "Step5 入口方式选择（供 pipeline/脚本选择使用）。注意：直接运行 step5b/step5c 时不会读取此 mode。",
+    "_comment_modes": {
+      "apriltag_pnp": "使用 step5b：需要 Step5 图片 + board_to_base_transform（即 W_T_T / B_T_T）。",
+      "world_anchor": "使用 step5c：需要世界锚点 world_T_base 与 world_T_reference_camera，并依赖 Step4 外参图传播。"
+    },
     "mode": "world_anchor",
 
     "world_anchor": {
@@ -170,48 +175,49 @@
   },
 
   "board_to_base_transform": {
-    "_comment_overview": "===== 标定板到底盘坐标系变换配置 =====",
+    "_comment_overview": "Step5b 关键配置：B_T_T（标定板坐标系 T -> base/world 坐标系 B）的固定变换。",
 
-    "coordinate_system": "底盘坐标系：X右 Y上 Z前",
-    "_comment_coordinate": "底盘坐标系定义: X轴向右, Y轴向上, Z轴向前 (符合机器人学标准)",
-
-    "description": "标定板相对机器人底盘的固定安装位置和姿态",
-    "_comment_transform_type": "变换矩阵 B_T_T: 将标定板坐标系(T)的点转换到底盘坐标系(B)",
-
-    "_comment_setup": "===== 物理安装情况 =====",
-    "_comment_setup_details": [
-      "标定板垂直靠墙固定安装",
-      "标定板底座高度: 31.6cm (离地面)",
-      "标定板最下方离墙距离: 15.0cm",
-      "标定板长度: 50.0cm",
-      "标定板倾斜角度: 向前倾斜 17.46°",
-      "机器人底盘中心到墙面距离: 2.182m (1.882m + 0.3m)",
-      "标定板中心相对底盘中心左右偏移: -8.2cm"
+    "coordinate_system": "世界/地板坐标系（B=W）：X、Z 为地面平面坐标，Y 为高度（向上）",
+    "_comment_coordinate": [
+      "本工程统一使用齐次变换 A_T_B 表示 B->A，并按 p_A = A_T_B @ p_B 应用。",
+      "若将 base 坐标系 B 直接定义为地板世界坐标系 W，则 Step5b 输出的 B_T_C 即为 W_T_C（相机 -> 世界）。",
+      "相机坐标系 C 采用 OpenCV 常用定义：x 右、y 下、z 前。"
     ],
 
-    "translation": [-0.068, -0.5545, 2.107],
-    "_comment_translation": "标定板中心在底盘坐标系中的位置 [X, Y, Z] (单位:米)",
-    "_comment_translation_calc": [
-      "X = -0.082 (标定板中心相对底盘中心偏左8.2cm, X轴向右为正)",
-      "Y = -(0.316 + 0.2385) = -0.5545 (底座高31.6cm + 底座到板中心高23.85cm(50cm / 2 * cos(17.46°)), Y轴向上为正)",
-      "Z = 2.182 - 0.075 = 2.107 (墙面距离减去前倾造成的中心前移7.5cm(50cm / 2 * sin(17.46°)), Z轴向前为正)"
+    "description": "标定板在世界/地板坐标系中的固定位置与姿态（作为世界锚点）。",
+    "_comment_transform_type": [
+      "B_T_T 表示：将标定板坐标系 T 中的点转换到 base/world 坐标系 B（即 T -> B）。",
+      "Step5b 通过 PnP 估计 C_T_T（T -> C），并计算：B_T_C = B_T_T @ inv(C_T_T)。",
+      "当部分相机看不到板时，可使用 Step4 外参图将已知的 B_T_C 传播到其它相机。"
     ],
 
-    "translation_reference": "board_center",
-    "_comment_translation_ref": "translation 对应的参考点：tag0_center(默认)/board_center/grid_center 等。若不是 tag0_center，则程序会用 translation_reference_point_in_T_m 把该参考点换算成 Tag0(=T原点) 在B中的位置",
-
-    "translation_reference_point_in_T_m": [0.17875, 0.17875, 0.0],
-    "_comment_ref_point": "参考点在标定板坐标系T中的位置(米)。本工程T系原点=Tag0中心，+X向右(列增大)，+Y向上(行增大)。若参考点取 tag网格中心/板中心(白边对称、且外圈边距等于tag_spacing时中心不变)，则: x=(tags_x-1)*(tag_size+tag_spacing)/2/1000, y=(tags_y-1)*(tag_size+tag_spacing)/2/1000, z=0。若白边不对称，还需加偏置: x+= (mR-mL)/2/1000, y+= (mT-mB)/2/1000",
-
-    "rotation_euler_deg": [162.54, 0.0, 0.0],
-    "_comment_rotation": "标定板相对底盘的姿态 [Roll, Pitch, Yaw] (单位:度)",
-    "_comment_rotation_explanation": [
-      "Roll = 162.54° (绕X轴旋转, 因为opencv坐标系y轴正方向向下，z轴正方向指向板后，所以标定板是向后倾斜)",
-      "Pitch = 0.0° (绕Y轴旋转, 无左右倾斜)",
-      "Yaw = 0.0° (绕Z轴旋转, 无水平转动)",
-      "倾斜角计算: 180° - arcsin(15.0/50.0) ≈ 180° - 17.46° = 162.54°"
+    "_comment_board_frame_T": [
+      "标定板坐标系 T 的原点为 Tag0 中心（tag0_center）。",
+      "T 的 +X/+Y 方向由板的几何定义决定（见 mcca.core.board.create_apriltag_board），所有角点位于 z=0 平面。",
+      "T 的 +Z 为板面法向（右手系）。实际使用中，板的正反面会导致 +Z 方向与‘相机视线方向’相反，可通过 rotation_euler_deg 中绕 Y 轴的 0/180° 翻转修正。"
     ],
 
-    "_comment_euler_convention": "使用XYZ内旋欧拉角 (scipy标准): 先绕X轴, 再绕旋转后的Y轴, 最后绕最终Z轴"
+    "__translation": [0.05825, 0.05825, 2.0],
+    "translation": [0.05825, 0.05825, 2.0],
+    "_comment_translation": [
+      "平移向量（单位：米）。在 translation_reference=tag0_center 时，translation 表示 Tag0 中心在世界坐标系 B=W 下的位置 [X,Y,Z]。",
+      "本示例测量值来自 cm：x=5.825cm, y=5.825cm, z=200cm，已换算为 m。",
+      "坐标含义：X、Z 为地面平面坐标；Y 为高度（向上）。"
+    ],
+
+    "translation_reference": "tag0_center",
+    "_comment_translation_ref": [
+      "translation_reference 用于指定 translation 所对应的参考点。",
+      "推荐使用 tag0_center：translation 直接表示 Tag0 中心在世界系中的位置，避免引入 board_center/grid_center 的额外换算与误差。"
+    ],
+
+    "rotation_euler_deg": [181.0, 0.0, 0.0],
+    "_comment_rotation": [
+      "XYZ 内旋欧拉角（单位：度），用于描述标定板坐标系 T 相对世界坐标系 B=W 的姿态。",
+      "在仅需修正板正反面（法向翻转）的场景，通常只需要调整第二项（绕 Y 轴）：0 或 180。",
+      "本示例选择 180°：使世界 +Z 的宏观方向与‘相机视线指向标定板’的方向一致（允许存在小角度偏差）。"
+    ],
+
+    "_comment_euler_convention": "使用 XYZ 内旋欧拉角 (scipy): 先绕 X，再绕(旋转后的)Y，最后绕(最终)Z"
   }
 }

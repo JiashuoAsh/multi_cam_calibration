@@ -27,11 +27,11 @@
     "force_resize_width": null,
     "force_resize_height": null,
 
-    "note": "建议优先运行 step1_extract_imgs_from_video.py 抽帧落盘后再跑 Step2~Step4。Windows 路径建议用 C:/xxx/yyy.mp4 或相对路径。"
+    "note": "建议优先运行 python -m mcca.entry.step1_extract_imgs_from_video 抽帧落盘后再跑 Step2~Step4。Windows 路径建议用 C:/xxx/yyy.mp4 或相对路径。"
   },
 
   "video_extract": {
-    "_comment": "Step1 抽帧参数（step1_extract_imgs_from_video.py 会读取这里）。",
+    "_comment": "Step1 抽帧参数（mcca.entry.step1_extract_imgs_from_video 会读取这里）。",
 
     "every_n": 10,
     "_comment_every_n": "每 N 帧保存 1 帧（越大越稀疏，默认 10）",
@@ -68,7 +68,7 @@
   },
 
   "step5_dataset": {
-    "_comment": "（可选）Step5 相机->底盘外参标定的数据集输入：启用后 step5b_camera_to_base.py 将按此配置自动处理多相机。",
+    "_comment": "（可选）Step5 相机->底盘外参标定的数据集输入：启用后 Step5b 入口（python -m mcca.entry.step5b_camera_to_base）将按此配置自动处理多相机。",
     "enabled": false,
     "image_root": "images/step5",
     "cameras": {

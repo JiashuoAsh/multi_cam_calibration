@@ -9,6 +9,10 @@ dependencies = [
     "scipy>=1.17.0",
 ]
 
+[project.scripts]
+multi-cam-cali-apriltag-pipeline = "mcca.entry.pipeline:cli_main"
+multi-cam-cali-apriltag-step5c-world-anchor = "mcca.entry.step5c_world_anchor:cli_main"
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

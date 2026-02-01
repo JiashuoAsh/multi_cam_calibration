@@ -1,7 +1,7 @@
 你是资深 Python 工程负责人 + 架构重构专家。请基于我仓库的 repo_tree.txt（已在仓库根目录）对代码库做一次工程化重构：目标是“结构清晰、低耦合、高可测、可维护、可复用、可扩展”，同时尽量不改变现有功能与输出格式。
 
 背景（从 repo_tree 可见）：
-- 仓库根目录堆了大量 step 脚本：run_calibration_pipeline.py、step1_capture_imgs.py、step2_filter_images.py、step3_intrinsic_apriltag.py、step4_multi_extrinsic_pose_graph.py、step4_stereo_extrinsic.py、step5*.py、step6*.py、suggest_detection_roi.py 等。
+- Step 入口已收敛到包内 `mcca.entry`：例如 `python -m mcca.entry.pipeline`、`python -m mcca.entry.step2_filter_images`、`python -m mcca.entry.step3_intrinsic_apriltag`、`python -m mcca.entry.step4_multi_extrinsic`、`python -m mcca.entry.step6_fuse_step5_results`；ROI 工具为 `python -m mcca.tools.suggest_detection_roi`。根目录不再保留薄包装脚本入口。
 - 存在 libs/（包含 camera_wrapper、extrinsics_graph 等）、tests/、config/（含 apriltag_config.json 与 CONFIG_GUIDE.md）、以及大量数据/产物目录：cache/apriltag_detection/*.npz、images/raw|filtered、videos/*.mp4、results/*、__pycache__、.ruff_cache、.pytest_cache，甚至 .venv 也出现在树里。
 - 当前问题：目录冗杂、生成物/数据混入 repo、脚本式流程导致耦合高、文件过长（1000+ 行）、模块边界不清晰、文档不完整。
 

@@ -19,7 +19,7 @@
 ## 1. camera_settings - 相机配置
 
 本仓库当前为 **video-only（离线 mp4）** 工作流：
-- 先用 `step1_extract_imgs_from_video.py` 抽帧生成 `images/raw/<cam>/*.png`（默认 cam0/cam1）
+- 先用 `python -m mcca.entry.step1_extract_imgs_from_video` 抽帧生成 `images/raw/<cam>/*.png`（默认 cam0/cam1）
 - 再运行 Step2~Step4
 
 因此 `camera_settings` 推荐只使用 `video_stereo`。
@@ -28,7 +28,7 @@
 
 当你已经有录制好的 mp4（例如两路 RGB 相机各录一个文件），推荐用视频抽帧脚本把视频转换成 `images/raw/<cam>/*.png`，然后直接复用 Step2~Step4。
 
-抽帧脚本：`python step1_extract_imgs_from_video.py`（详见该脚本顶部注释）。
+抽帧入口：`python -m mcca.entry.step1_extract_imgs_from_video`（详见该模块顶部注释）。
 
 如果你希望把“视频”也当成一种 `camera_settings` 输入源（例如复用 `init_camera()` 的统一入口），可以将 `camera_type` 设置为 `video_stereo`。
 
@@ -67,11 +67,11 @@
 - `sbs_order`: 左右半区对应的相机名（single_sbs），例如 `["cam0","cam1"]` 表示左半 cam0、右半 cam1
 - `rotate`: 按相机名指定 `none|cw90|ccw90|180`，用于修正方向
 
-> 注意：即使配置了 `video_stereo`，Step2~Step4 也不会直接从视频读图；仍推荐先用 `step1_extract_imgs_from_video.py` 落盘成图片数据集。
+> 注意：即使配置了 `video_stereo`，Step2~Step4 也不会直接从视频读图；仍推荐先用 Step1 抽帧入口落盘成图片数据集。
 
 ## 1.5 video_extract - Step1 抽帧参数（推荐写入 config）
 
-`step1_extract_imgs_from_video.py` 会从 `apriltag_config.json` 中读取 `video_extract` 作为抽帧参数。
+`mcca.entry.step1_extract_imgs_from_video` 会从 `apriltag_config.json` 中读取 `video_extract` 作为抽帧参数。
 
 ```json
 {
@@ -89,7 +89,7 @@
 
 运行方式（统一入口）：
 
-- `python step1_extract_imgs_from_video.py --config config/apriltag_config.json`
+- `python -m mcca.entry.step1_extract_imgs_from_video --config config/apriltag_config.json`
 
 > 说明：JSON 标准不支持 `//` 注释，本工程采用 `_comment` 字段作为“可解析注释”，不会影响解析。
 
@@ -146,6 +146,7 @@
   - filtered 输出默认写到 `filtered_root/<cam>`
 
 - `cameras`：相机字典，key 就是相机名（例如 cam0/cam1/cam2...）。
+  - 约定：以 `_`/`.`/`__` 开头的 key 会被忽略（可用于 `_comment` 注释或临时禁用条目）。
   - `raw_dir`：目录形式（会自动扫描 png/jpg/jpeg/bmp）
   - `raw_glob`：glob 形式（支持字符串或字符串列表）
 
@@ -153,50 +154,6 @@
   - `key=stem`：按文件名 stem 作为同步键（不含扩展名）
   - `mode=intersection`：只统计所有相机都存在的帧键（更严格，适合同步采集）
   - `mode=union`：统计所有出现过的帧键（更宽松）
-
-### Legacy（不再内置支持）: USB/MIPI 实时相机
-
-如果你确实要用真实相机实时采集，请使用历史版本或 `archive/legacy_capture/` 中的脚本作为参考（注意：当前 `libs/camera_wrapper.py` 已经精简为 video-only）。
-
-#### Legacy-USB: USB双目拼接相机（已弃用）
-
-```json
-{
-  "camera_type": "custom_usb_stereo",
-  "device_path": "/dev/video40",
-  "raw_width": 2560,
-  "raw_height": 720,
-  "image_width": 1280,
-  "image_height": 720
-}
-```
-
-**参数说明**:
-- `camera_type`: 固定为 `"custom_usb_stereo"`
-- `device_path`: V4L2设备路径（通过 `v4l2-ctl --list-devices` 查看）
-- `raw_width`: 原始捕获宽度（通常为左右拼接后的总宽度，如2560）
-- `raw_height`: 原始捕获高度
-- `image_width`: 单侧相机图像宽度（通常为 raw_width/2）
-- `image_height`: 单侧相机图像高度
-
-#### Legacy-MIPI: MIPI独立相机（已弃用）
-
-```json
-{
-  "camera_type": "mipi",
-  "left_camera_id": 22,
-  "right_camera_id": 31,
-  "image_width": 3840,
-  "image_height": 2160
-}
-```
-
-**参数说明**:
-- `camera_type`: 固定为 `"mipi"`
-- `left_camera_id`: 左相机设备ID
-- `right_camera_id`: 右相机设备ID
-- `image_width`: 单个相机图像宽度
-- `image_height`: 单个相机图像高度
 
 ## 2. apriltag_board - 标定板配置
 
@@ -353,7 +310,7 @@ Step5 需要一批“标定板固定安装在底盘坐标系中”的图片（�
 
 如果你已经能拿到“世界坐标系”下的绝对位姿（例如动捕 / SLAM / GNSS），你可以不拍 Step5 AprilTag 图片，直接通过坐标系推导得到相机->底盘外参。
 
-该方式对应脚本：`step5c_camera_to_base_from_world.py`。
+该方式对应入口模块：`python -m mcca.entry.step5c_world_anchor ...`（旧的根目录薄包装脚本已移除）。
 
 ### 基本输入
 
@@ -362,7 +319,12 @@ Step5 需要一批“标定板固定安装在底盘坐标系中”的图片（�
 - 底盘在世界系的位姿：$W\_T\_B$（Base -> World）
 - 某个参考相机在世界系的位姿：$W\_T\_{C\_ref}$（Cam_ref -> World）
 - Step4 相机间外参（用于传播到其它相机）：
-  - `results/multi_camera_extrinsics.json`（多相机 pose graph）
+  - `results/multi_camera_extrinsics.json`（多相机外参，支持 BA/pose_graph；包含 `translation_unit` 字段，平移单位需明确为 `"m"` 或 `"mm"`）
+  - `results/multi_camera_poses.json`（可选：相机位姿文件，含 `T_ref_from_cam`；用于人读/可视化，Step5 不依赖该文件）
+
+验证标准：
+- 若你已经有旧版本生成的 `results/multi_camera_extrinsics.json`（缺少 `translation_unit`），请重新运行 Step4 生成新版文件。
+  Step5 在加载 Step4 外参时会校验该字段，以避免隐式单位/静默缩放带来的尺度风险。
 
 核心公式（本仓库约定 `A_T_B` 表示 B->A）：
 
@@ -389,10 +351,10 @@ $$
 ### 运行方式
 
 - 单独运行：
-  - `python step5c_camera_to_base_from_world.py --config config/apriltag_config.json`
+  - `python -m mcca.entry.step5c_world_anchor --config config/apriltag_config.json`
 
 - 使用流水线：
-  - 当 `camera_to_base_calibration.mode=world_anchor` 时，`run_calibration_pipeline.py` 会自动选择 Step5c（即使未启用 step5_dataset）。
+  - 当 `camera_to_base_calibration.mode=world_anchor` 时，流水线入口会自动选择 Step5c（即使未启用 step5_dataset）。
 
 ## 5. board_to_base_transform - 坐标变换配置
 
@@ -407,7 +369,7 @@ $$
 - `translation`: 标定板相对机器人底盘的平移向量 `[X, Y, Z]` (单位: 米)
 - `rotation_euler_deg`: 标定板相对底盘的旋转角度 `[Roll, Pitch, Yaw]` (单位: 度)
 
-**仅在使用 Step5（`step5b_camera_to_base.py`）时需要配置**
+**仅在使用 Step5（`python -m mcca.entry.step5b_camera_to_base`）时需要配置**
 
 > 说明：本仓库当前推荐“离线图片/视频抽帧”的 Step5 流程。旧的实时采集 Step5a 已归档。
 
@@ -418,7 +380,7 @@ $$
 
 ### rotation_euler_deg 的严格定义（彻底定死）
 
-在 `step5b_camera_to_base.py` 中，`rotation_euler_deg = [roll, pitch, yaw]` 被解释为：
+在 `mcca/core/step5_camera_to_base.py` 中，`rotation_euler_deg = [roll, pitch, yaw]` 被解释为：
 
 > 直接按 SciPy 生成 $R_{B\leftarrow T}$：
 > $$R_{B\leftarrow T}=\texttt{Rotation.from\_euler("XYZ", [roll, pitch, yaw], degrees=True).as\_matrix()}$$

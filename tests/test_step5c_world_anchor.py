@@ -4,7 +4,9 @@ from pathlib import Path
 
 import numpy as np
 
-from step5c_camera_to_base_from_world import solve_camera_to_base_from_world
+from mcca.core.camera_to_base_world_anchor import (
+    solve_camera_to_base_from_world,
+)
 
 
 class TestStep5cWorldAnchor(unittest.TestCase):

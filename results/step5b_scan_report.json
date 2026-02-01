@@ -1,0 +1,104 @@
+{
+  "timestamp": "2026-02-02T06:32:22.234357",
+  "image_root": "images/step5",
+  "scan_reports": {
+    "cam1": {
+      "cam": "cam1",
+      "profile": "small_tags",
+      "min_tags": 2,
+      "scan": {
+        "strategy": "uniform",
+        "seed": 0,
+        "limits": {
+          "target_valid": 30,
+          "max_total": 20,
+          "max_seconds": 0.0
+        },
+        "counters": {
+          "total_candidates": 20,
+          "submitted": 20,
+          "completed": 20,
+          "valid": 20,
+          "elapsed_s": 2.0630000000237487
+        },
+        "stop_reason": "max_total_images"
+      },
+      "perf": {
+        "workers": 24,
+        "prefetch": 0,
+        "cache": {
+          "enabled": true,
+          "cache_dir": "cache/apriltag_detection",
+          "force_redetect": false
+        },
+        "prefilter": {
+          "enabled": false
+        }
+      },
+      "detector_calls": {
+        "total_images": 20,
+        "cache_hit": 20,
+        "cache_miss": 0,
+        "prefilter_skipped": 0,
+        "error": 0,
+        "detect_ms_sum": 0.0
+      },
+      "pnp": {
+        "ok": 20,
+        "fail": 0
+      },
+      "results": {
+        "valid_poses": 20
+      }
+    },
+    "cam3": {
+      "cam": "cam3",
+      "profile": "small_tags",
+      "min_tags": 2,
+      "scan": {
+        "strategy": "uniform",
+        "seed": 0,
+        "limits": {
+          "target_valid": 30,
+          "max_total": 20,
+          "max_seconds": 0.0
+        },
+        "counters": {
+          "total_candidates": 20,
+          "submitted": 20,
+          "completed": 20,
+          "valid": 19,
+          "elapsed_s": 2.0310000000172295
+        },
+        "stop_reason": "max_total_images"
+      },
+      "perf": {
+        "workers": 24,
+        "prefetch": 0,
+        "cache": {
+          "enabled": true,
+          "cache_dir": "cache/apriltag_detection",
+          "force_redetect": false
+        },
+        "prefilter": {
+          "enabled": false
+        }
+      },
+      "detector_calls": {
+        "total_images": 20,
+        "cache_hit": 20,
+        "cache_miss": 0,
+        "prefilter_skipped": 0,
+        "error": 0,
+        "detect_ms_sum": 0.0
+      },
+      "pnp": {
+        "ok": 19,
+        "fail": 0
+      },
+      "results": {
+        "valid_poses": 19
+      }
+    }
+  }
+}

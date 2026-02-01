@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-01-30T02:44:32.370276",
+  "timestamp": "2026-02-01T15:33:32.596094",
   "image_root": "images/filtered",
   "intrinsics_dir": "results",
   "reference": "cam0",
-  "min_tags": 1,
+  "min_tags": 2,
   "poses_frames": 150,
   "edges_total": 428,
   "edges_used": 428,
@@ -282,7 +282,8 @@
       "min_keep_per_cam": 3,
       "before": 419,
       "after": 389,
-      "dropped_frames": 12
+      "dropped_frames": 12,
+      "changed": true
     }
   },
   "edge_error": {

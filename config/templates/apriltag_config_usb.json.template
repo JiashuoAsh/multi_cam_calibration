@@ -86,9 +86,9 @@
     "_comment_translation_reference_point_in_T_m": "参考点在T坐标系中的位置(米)。仅当 translation_reference 不是 tag0_center 时有意义；也可显式覆盖默认网格中心",
 
     "rotation_euler_deg": [0.0, 0.0, 90.0],
-    "_comment_rotation_euler_deg": "旋转角度 [Roll, Pitch, Yaw] 单位:度。严格定义见 step5b_camera_to_base.py：SciPy Rotation.from_euler('XYZ', [roll,pitch,yaw])（内旋/右手定则）",
+    "_comment_rotation_euler_deg": "旋转角度 [Roll, Pitch, Yaw] 单位:度。严格定义见 mcca/core/step5_camera_to_base.py：SciPy Rotation.from_euler('XYZ', [roll,pitch,yaw])（内旋/右手定则）",
 
-    "note": "Step5 使用 step5a_capture_for_base.py + step5b_camera_to_base.py；请测量并更新这些值"
+    "note": "Step5 使用 Step5b 入口（python -m mcca.entry.step5b_camera_to_base）；请测量并更新这些值"
   },
 
   "_example_configurations": {

@@ -1,0 +1,101 @@
+$ python -m mcca.entry.step4_multi_extrinsic
+============================================================
+Step 4 (Multi-Cam): 多相机外参标定（位姿图优化/BA）
+============================================================
+图像根目录: images\filtered
+相机列表: ['cam0', 'cam1', 'cam2', 'cam3']
+参考相机: cam0
+min_tags: 2
+每相机可用图片数量(frame_key 去重后): {'cam0': 175, 'cam1': 391, 'cam2': 171, 'cam3': 444}
+PnP 有效帧数: 28
+位姿图边数量: 30
+图连通分量数量: 1
+  component#1: ['cam0', 'cam1', 'cam2', 'cam3']
+
+PnP 自身重投影误差统计（像素，越小越好；仅统计参与建图的观测）
+  - cam0: n=2 mean=0.8554 median=0.8554 p95=1.1860 max=1.2227
+  - cam1: n=22 mean=0.1596 median=0.0960 p95=0.3525 max=0.7715
+  - cam2: n=6 mean=0.8001 median=0.7620 p95=1.1692 max=1.1869
+  - cam3: n=27 mean=0.0842 median=0.0684 p95=0.1345 max=0.2412
+
+边的平均重投影误差（像素，edge_mean_px=0.5*(cam_i+cam_j)；与边权重一致）
+  - n=30 mean=0.2278 median=0.1302 p95=0.6388 max=0.6505
+
+诊断：edge_mean_px 最大的若干条边（更像‘检测/同步’问题的信号）
+  #1 pair=cam0__cam3 frame=seq000060_f61 edge_mean_px=0.6505 paths=(filtered\cam0\cam0_seq000060_f61.bmp) | (filtered\cam3\cam3_seq000060_f61.bmp)
+  #2 pair=cam0__cam1 frame=seq000060_f61 edge_mean_px=0.6482 paths=(filtered\cam0\cam0_seq000060_f61.bmp) | (filtered\cam1\cam1_seq000060_f61.bmp)
+  #3 pair=cam2__cam3 frame=seq000003_f4 edge_mean_px=0.6274 paths=(filtered\cam2\cam2_seq000003_f4.bmp) | (filtered\cam3\cam3_seq000003_f4.bmp)
+  #4 pair=cam2__cam3 frame=seq000002_f3 edge_mean_px=0.5862 paths=(filtered\cam2\cam2_seq000002_f3.bmp) | (filtered\cam3\cam3_seq000002_f3.bmp)
+  #5 pair=cam2__cam3 frame=seq000000_f1 edge_mean_px=0.4666 paths=(filtered\cam2\cam2_seq000000_f1.bmp) | (filtered\cam3\cam3_seq000000_f1.bmp)
+
+开始多相机 Bundle Adjustment（像素域联合优化）...
+
+BA 优化后的重投影误差（像素，越小越好）
+  - overall: n=57 mean=1.0160 median=0.9197 p95=1.9350 max=2.4239
+
+边误差统计（更直观）：
+  - rot_deg: median=1.230, p95=1.430, max=1.556
+  - trans_mm: median=47.262, p95=55.514, max=61.166
+  #2 pair=cam1__cam3 frame=seq000026_f27 rot_deg=1.446 trans_mm=55.917 paths=(filtered\cam1\cam1_seq000026_f27.bmp) | (filtered\cam3\cam3_seq000026_f27.bmp)
+  #3 pair=cam1__cam3 frame=seq000038_f39 rot_deg=1.411 trans_mm=55.025 paths=(filtered\cam1\cam1_seq000038_f39.bmp) | (filtered\cam3\cam3_seq000038_f39.bmp)
+  #4 pair=cam1__cam3 frame=seq000043_f44 rot_deg=1.365 trans_mm=52.772 paths=(filtered\cam1\cam1_seq000043_f44.bmp) | (filtered\cam3\cam3_seq000043_f44.bmp)
+  #5 pair=cam1__cam3 frame=seq000052_f53 rot_deg=1.340 trans_mm=51.675 paths=(filtered\cam1\cam1_seq000052_f53.bmp) | (filtered\cam3\cam3_seq000052_f53.bmp)
+已保存边级诊断: results/step4_multi_edge_diagnostics.json
+
+已保存:
+  - results/multi_camera_extrinsics.json
+  - results/multi_camera_pose_graph_report.json
+  - results/step4_multi_scan_report.json
+(.venv)
+woan@LAPTOP-C3FMTM1O MINGW64 ~/Desktop/gtruth/multi_cam_cali_apriltag (master)
+$ python -m mcca.entry.step4_multi_extrinsic --no_stop_when_connected
+============================================================
+Step 4 (Multi-Cam): 多相机外参标定（位姿图优化/BA）
+============================================================
+图像根目录: images\filtered
+相机列表: ['cam0', 'cam1', 'cam2', 'cam3']
+参考相机: cam0
+min_tags: 2
+每相机可用图片数量(frame_key 去重后): {'cam0': 175, 'cam1': 391, 'cam2': 171, 'cam3': 444}
+PnP 有效帧数: 150
+位姿图边数量: 428
+图连通分量数量: 1
+  component#1: ['cam0', 'cam1', 'cam2', 'cam3']
+
+PnP 自身重投影误差统计（像素，越小越好；仅统计参与建图的观测）
+  - cam0: n=87 mean=0.3981 median=0.2349 p95=1.5823 max=4.0910
+  - cam1: n=134 mean=0.0887 median=0.0613 p95=0.2361 max=0.7953
+  - cam2: n=77 mean=0.5233 median=0.1164 p95=1.3690 max=10.1681
+  - cam3: n=121 mean=0.0742 median=0.0643 p95=0.1306 max=0.2477
+
+边的平均重投影误差（像素，edge_mean_px=0.5*(cam_i+cam_j)；与边权重一致）
+  - n=428 mean=0.2318 median=0.1022 p95=0.8415 max=5.1168
+
+诊断：edge_mean_px 最大的若干条边（更像‘检测/同步’问题的信号）
+  #1 pair=cam1__cam2 frame=seq000135_f136 edge_mean_px=5.1168 paths=(filtered\cam1\cam1_seq000135_f136.bmp) | (filtered\cam2\cam2_seq000135_f136.bmp)
+  #2 pair=cam1__cam2 frame=seq000136_f137 edge_mean_px=4.6933 paths=(filtered\cam1\cam1_seq000136_f137.bmp) | (filtered\cam2\cam2_seq000136_f137.bmp)
+  #3 pair=cam2__cam3 frame=seq000136_f137 edge_mean_px=4.6868 paths=(filtered\cam2\cam2_seq000136_f137.bmp) | (filtered\cam3\cam3_seq000136_f137.bmp)
+  #4 pair=cam0__cam2 frame=seq000188_f189 edge_mean_px=2.1052 paths=(filtered\cam0\cam0_seq000188_f189.bmp) | (filtered\cam2\cam2_seq000188_f189.bmp)
+  #5 pair=cam0__cam3 frame=seq000188_f189 edge_mean_px=2.0879 paths=(filtered\cam0\cam0_seq000188_f189.bmp) | (filtered\cam3\cam3_seq000188_f189.bmp)
+
+开始多相机 Bundle Adjustment（像素域联合优化）...
+
+BA 优化后的重投影误差（像素，越小越好）
+  - overall: n=389 mean=3.4778 median=1.8733 p95=14.6050 max=34.2850
+
+边误差统计（更直观）：
+  - rot_deg: median=0.515, p95=1.983, max=25.899
+  - trans_mm: median=32.192, p95=136.668, max=1715.992
+
+诊断：误差最大的若干条边（用于定位坏帧/不同步）
+  #1 pair=cam1__cam2 frame=seq000135_f136 rot_deg=25.899 trans_mm=1730.689 paths=(filtered\cam1\cam1_seq000135_f136.bmp) | (filtered\cam2\cam2_seq000135_f136.bmp)
+  #2 pair=cam2__cam3 frame=seq000136_f137 rot_deg=24.731 trans_mm=1389.896 paths=(filtered\cam2\cam2_seq000136_f137.bmp) | (filtered\cam3\cam3_seq000136_f137.bmp)
+  #3 pair=cam1__cam2 frame=seq000136_f137 rot_deg=24.480 trans_mm=1633.930 paths=(filtered\cam1\cam1_seq000136_f137.bmp) | (filtered\cam2\cam2_seq000136_f137.bmp)
+  #4 pair=cam0__cam1 frame=seq000070_f71 rot_deg=10.947 trans_mm=508.756 paths=(filtered\cam0\cam0_seq000070_f71.bmp) | (filtered\cam1\cam1_seq000070_f71.bmp)
+  #5 pair=cam1__cam3 frame=seq000070_f71 rot_deg=10.497 trans_mm=478.773 paths=(filtered\cam1\cam1_seq000070_f71.bmp) | (filtered\cam3\cam3_seq000070_f71.bmp)
+已保存边级诊断: results/step4_multi_edge_diagnostics.json
+
+已保存:
+  - results/multi_camera_extrinsics.json
+  - results/multi_camera_pose_graph_report.json
+  - results/step4_multi_scan_report.json

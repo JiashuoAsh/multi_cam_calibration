@@ -53,6 +53,7 @@ coverage.xml
 # Virtual environments
 .env
 .venv
+.venv*
 env/
 venv/
 ENV/
@@ -90,6 +91,9 @@ output.txt
 # Keep example images but ignore bulk data
 images/*
 results/visualization/*
+
+# Results trash (archived old outputs; can be removed safely)
+results/_trash/
 
 # Results that can be regenerated
 results/visualization/
