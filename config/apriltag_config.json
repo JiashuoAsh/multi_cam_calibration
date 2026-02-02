@@ -198,7 +198,7 @@
     ],
 
     "__translation": [0.05825, 0.05825, 2.0],
-    "translation": [0.05825, 0.05825, 2.0],
+    "translation": [-0.05825, 0.05825, 2.0],
     "_comment_translation": [
       "平移向量（单位：米）。在 translation_reference=tag0_center 时，translation 表示 Tag0 中心在世界坐标系 B=W 下的位置 [X,Y,Z]。",
       "本示例测量值来自 cm：x=5.825cm, y=5.825cm, z=200cm，已换算为 m。",
@@ -211,7 +211,7 @@
       "推荐使用 tag0_center：translation 直接表示 Tag0 中心在世界系中的位置，避免引入 board_center/grid_center 的额外换算与误差。"
     ],
 
-    "rotation_euler_deg": [181.0, 0.0, 0.0],
+    "rotation_euler_deg": [0.0, 180.0, 0.0],
     "_comment_rotation": [
       "XYZ 内旋欧拉角（单位：度），用于描述标定板坐标系 T 相对世界坐标系 B=W 的姿态。",
       "在仅需修正板正反面（法向翻转）的场景，通常只需要调整第二项（绕 Y 轴）：0 或 180。",

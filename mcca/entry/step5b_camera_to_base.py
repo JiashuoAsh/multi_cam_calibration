@@ -39,7 +39,7 @@ from mcca.core.datasets import get_step5_cameras, get_step5_dataset
 from mcca.core.detection import get_detection_settings
 from mcca.core.extrinsics_graph import transform_payload
 from mcca.core.rigid import ensure_T, invert_T
-from mcca.core.step5_camera_to_base import solve_camera_to_base
+from mcca.core.step5_camera_to_base import build_B_T_T_from_config, solve_camera_to_base
 
 
 # 说明：命名中显式包含矩阵方向，避免“外参/位姿”混淆。
@@ -58,6 +58,49 @@ def _vprint(*args, **kwargs) -> None:
 
     if VERBOSE:
         print(*args, **kwargs)
+
+
+def _pretty_mat(name: str, T: np.ndarray, *, indent: str = "  ") -> str:
+    """格式化 4x4 矩阵，便于 verbose 阅读。"""
+
+    T = np.asarray(T, dtype=np.float64)
+    s = np.array2string(
+        T,
+        formatter={"float_kind": lambda v: f"{float(v): .6f}"},
+        suppress_small=False,
+    )
+    return f"{indent}{name} =\n{indent}{s.replace(chr(10), chr(10) + indent)}"
+
+
+def _print_transform_sanity(*, name: str, T: np.ndarray, indent: str = "  ") -> None:
+    """打印变换矩阵的自检信息（用于排查反射/不必要翻转）。
+
+    说明：
+        - 合法旋转应满足 det(R)=+1；若 det(R)=-1 则属于反射（镜像），不应出现在姿态链路中。
+        - 严格旋转应满足 R^T R = I。
+        - 轴向映射可帮助把欧拉角/矩阵转换为更直观的方向语义。
+    """
+
+    T = np.asarray(T, dtype=np.float64)
+    R = T[:3, :3]
+    t = T[:3, 3]
+
+    det = float(np.linalg.det(R))
+    ortho_err = float(np.max(np.abs(R.T @ R - np.eye(3))))
+
+    x_T_in_parent = R @ np.array([1.0, 0.0, 0.0])
+    y_T_in_parent = R @ np.array([0.0, 1.0, 0.0])
+    z_T_in_parent = R @ np.array([0.0, 0.0, 1.0])
+
+    _vprint(_pretty_mat(name, T, indent=indent))
+    _vprint(f"{indent}{name}: det(R)={det:.6f} (期望 +1.0；若为 -1.0 则是反射/镜像)")
+    _vprint(f"{indent}{name}: max|R^T R - I|={ortho_err:.3e} (越接近 0 越好)")
+    _vprint(f"{indent}{name}: t(parent)={t.tolist()} (m)")
+    _vprint(f"{indent}{name}: x_T_in_parent={x_T_in_parent.tolist()}")
+    _vprint(f"{indent}{name}: y_T_in_parent={y_T_in_parent.tolist()}")
+    _vprint(f"{indent}{name}: z_T_in_parent={z_T_in_parent.tolist()}")
+
+
 def load_calibration_data(*, config_path: str) -> Dict[str, Any]:
     """加载标定数据（与相机数量无关）。"""
 
@@ -72,6 +115,23 @@ def load_calibration_data(*, config_path: str) -> Dict[str, Any]:
     print("\n标定板到底盘的变换:")
     print(f"  - 平移 (m): {transform_cfg['translation']}")
     print(f"  - 旋转 (度): {transform_cfg['rotation_euler_deg']}")
+
+    # verbose：额外打印“程序实际使用的 B_T_T”，避免只盯着欧拉角导致误解。
+    if VERBOSE:
+        translation_ref = str(transform_cfg.get("translation_reference", "tag0_center"))
+        ref_point = transform_cfg.get("translation_reference_point_in_T_m", None)
+
+        _vprint("\n[verbose] B_T_T 构造与自检（用于排查反射/翻转/参考点定义）")
+        _vprint(f"  translation_reference: {translation_ref!r}")
+        _vprint(f"  translation_reference_point_in_T_m: {ref_point}")
+        if translation_ref != "tag0_center" and ref_point is None:
+            _vprint(
+                "  注意：translation_reference != 'tag0_center' 且未提供 translation_reference_point_in_T_m。\n"
+                "  程序将回退到默认网格中心（由 tag_size + tag_spacing + tags_x/tags_y 估算）。"
+            )
+
+        B_T_T = build_B_T_T_from_config(transform_cfg=transform_cfg, board_cfg=board_cfg)
+        _print_transform_sanity(name="B_T_T (T->B)", T=B_T_T)
 
     # 创建 AprilTag 标定板
     obj_points_mm, tag_ids = create_apriltag_board(config)
