@@ -1,7 +1,10 @@
 # Workspace
 videos/**
 # Detection cache (can be regenerated)
+images/
 cache/
+tmp_by_camera/
+results/visualization
 
 # Python
 __pycache__/
